@@ -1,0 +1,25 @@
+{
+  "service": "gcm-search-gateway",
+  "started_at": "2026-08-14 13:00:00",
+  "alert": "Total third-party API calls (across endpoints: search + business-detail + ai-chat) are pacing above the daily budget. The vendor bills $0.05/call above 10,000 calls/day. WARNING threshold ~9k/day, CRITICAL at 10k/day. Suspected caching regression from a recent release still active.",
+  "recent_deploy": {
+    "service": "gcm-search-gateway",
+    "version": "r2026.07.2",
+    "by": "ci-pipeline",
+    "relative_time": "2 days ago, changed the search-result cache layer"
+  },
+  "metrics": {
+    "calls_today": 11800,
+    "daily_budget_calls": 10000,
+    "calls_per_hour": 600,
+    "billable_overage_calls": 1800,
+    "projected_extra_cost_usd": "approx $90/day if this pace holds",
+    "cache_hit_rate": "31% (baseline ~88%)"
+  },
+  "sample_logs": [
+    { "ts": "12:58:04", "level": "WARN", "message": "search cache MISS key=q:restaurants:geo (fallback to upstream API)", "count": 420 },
+    { "ts": "12:58:41", "level": "INFO", "message": "upstream vendor-search-api call ok status=200 latency=180ms" },
+    { "ts": "12:59:12", "level": "WARN", "message": "cache layer returned null for TTL-eligible key (unexpected)", "count": 137 }
+  ],
+  "runbook": "https://internal.example.com/runbooks/api-overage"
+}

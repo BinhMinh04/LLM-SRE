@@ -1,0 +1,50 @@
+# ─── SECRETS — Not Commit ───────────────────────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+credentials
+secrets.json
+aws_credentials
+.aws/
+
+# ─── Python ─────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# ─── Node / React (board) ───────────────────────────────────────
+node_modules/
+board/build/
+board/dist/
+.env.local
+.env.production
+
+# ─── Serverless / build artifacts ───────────────────────────────
+.serverless/
+*.zip
+dist/
+cdk.out/
+
+# ─── OS & IDE ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# ─── Log & temporary files ─────────────────────────────────────────────
+*.log
+tmp/
+.cache/
+
+# ─── Claude ─────────────────────────────────────────────────────
+.claude/settings.local.json
+.claude/*.local.json
+.claude/logs/
+.claude/history/
+.claude/cache/

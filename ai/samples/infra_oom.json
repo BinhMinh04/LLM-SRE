@@ -1,0 +1,35 @@
+{
+  "service": "payment-service",
+  "cluster": "prod-fargate",
+  "started_at": "2026-08-14 14:02:11",
+  "ecs": {
+    "running": 1,
+    "desired": 4,
+    "stopped_reason": "OutOfMemory",
+    "restarts_5m": 11,
+    "task_memory": "512 MiB"
+  },
+  "alb": {
+    "healthy": 1,
+    "total": 4,
+    "error_rate": "23.7%",
+    "p95_latency": "4.8s",
+    "rpm": 3140
+  },
+  "recent_deploy": {
+    "service": "payment-service",
+    "version": "v2.14.0",
+    "by": "ci-pipeline",
+    "relative_time": "3 min before incident"
+  },
+  "metrics": {
+    "memory_pct": "99%",
+    "cpu_pct": "62%",
+    "5xx_rate": "23.7%"
+  },
+  "sample_logs": [
+    { "ts": "14:02:09", "level": "FATAL", "message": "java.lang.OutOfMemoryError: Java heap space" },
+    { "ts": "14:02:09", "level": "ERROR", "message": "Container payment killed - exit 137 (OOMKilled)" },
+    { "ts": "14:02:31", "level": "FATAL", "message": "OutOfMemoryError: Java heap space", "count": 9 }
+  ]
+}
