@@ -89,6 +89,15 @@ on `main` — that branch should be renamed or merged into the properly-named on
 `.claude/hooks/block-main-push.sh` denies any `git push` targeting `main`/`master` outright. Both hooks are
 a backstop; the policy holds even where they can't reach (e.g. manual git outside Claude Code).
 
+**Always pull `main` first.** Before `git checkout -b` or `git push`, pull `main` from origin — if HEAD is
+on `main`, pull it directly; if on another branch, pull `main` down and merge/rebase it in before pushing
+further work. Skip this only on the user's explicit say-so. `auto-branch.sh` does this itself
+(`git pull --ff-only`) before cutting its fallback branch, but that only covers the one case it fires on.
+
+**PRs**: no `Co-Authored-By` trailer on commits/PRs (`attribution.commit`/`attribution.pr` are set to `""`
+in `.claude/settings.json` — don't revert this). Keep PR descriptions short: 3-4 sentences on what changed
+and why, not a long Summary/Test-plan write-up.
+
 ## Roadmap (planned, not yet implemented)
 
 Referenced by code comments and `.gitignore`, but no files exist for these yet — treat as direction, not
