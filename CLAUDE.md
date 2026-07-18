@@ -66,6 +66,29 @@ Input is a JSON object describing one incident. All fields are optional except `
 When extending the input format, update `build_user_message()` to render the new field and keep the samples
 in sync as living documentation.
 
+## Git workflow
+
+`main` is protected. Never commit or push directly to `main` — always work on a branch and land changes via
+PR. **Before starting any code change, explicitly create a branch named `<type>/<short-kebab-slug>`**
+matching the task, using the type that fits:
+
+| Prefix | Use for |
+|---|---|
+| `feature/<slug>` | new functionality |
+| `fix/<slug>` | non-urgent bug fix |
+| `hotfix/<slug>` | urgent production fix |
+| `chore/<slug>` | config, setup, cleanup — no behavior change |
+| `refactor/<slug>` | restructuring, no behavior change |
+| `docs/<slug>` | docs only |
+| `test/<slug>` | tests only |
+
+This naming is enforced by judgment (mine), not tooling — pick the type and slug from what the task
+actually is. `.claude/hooks/auto-branch.sh` is only a safety net: if code gets edited while still on
+`main`/`master` (e.g. a branch step was missed), it auto-creates `chore/auto-<timestamp>` so nothing lands
+on `main` — that branch should be renamed or merged into the properly-named one, not used as-is.
+`.claude/hooks/block-main-push.sh` denies any `git push` targeting `main`/`master` outright. Both hooks are
+a backstop; the policy holds even where they can't reach (e.g. manual git outside Claude Code).
+
 ## Roadmap (planned, not yet implemented)
 
 Referenced by code comments and `.gitignore`, but no files exist for these yet — treat as direction, not
