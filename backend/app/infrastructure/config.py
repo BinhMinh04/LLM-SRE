@@ -28,12 +28,28 @@ class Settings(BaseSettings):
     # asyncpg driver; overridden by DATABASE_URL in compose.
     database_url: str = "postgresql+asyncpg://iim:iim@localhost:5432/iim"
 
-    # --- Bedrock / models (reused from Step 0 constants) ---
+    # --- LLM provider (decision 0016) ---
+    llm_provider: str = "bedrock"  # bedrock | deepseek
+    max_rounds: int = 2  # critic corrective-retrieval loop cap
+
+    # Bedrock (Claude)
     aws_region: str = "ap-southeast-1"
     model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0"  # main tier (diagnosis, critic)
     fast_model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0"  # Haiku tier (triage, etc.)
-    embed_model_id: str = "amazon.titan-embed-text-v2:0"  # Titan v2, 1024-dim
-    max_rounds: int = 2  # critic corrective-retrieval loop cap
+
+    # DeepSeek (OpenAI-compatible)
+    deepseek_api_key: str | None = None
+    deepseek_model: str = "deepseek-chat"
+    deepseek_base_url: str = "https://api.deepseek.com"
+
+    # --- Embedding provider (decision 0016) ---
+    embedding_provider: str = "titan"  # titan | jina
+    embedding_model: str = "amazon.titan-embed-text-v2:0"
+    embedding_dim: int = 1024  # Titan v2 = 1024, Jina jina-embeddings-v3 = 768
+
+    # Jina
+    jina_api_key: str | None = None
+    jina_base_url: str = "https://api.jina.ai/v1/embeddings"
 
     # --- Cache ---
     cache_ttl_seconds: int = 1800  # 30 min, matches Step 0 CACHE_TTL_SECONDS

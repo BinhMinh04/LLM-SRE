@@ -1,9 +1,8 @@
 """Single-call analyzer via LangChain ChatBedrockConverse — implements the domain `Analyzer` port.
 
 Reuses the domain prompt (`SYSTEM_PROMPT` + `build_user_message`) and returns an `AnalysisDraft`.
-Parsing the provider's response (stripping code fences, validating the 5 fields) is an infrastructure
-concern and lives here. The blocking Bedrock call is offloaded with `asyncio.to_thread` so it does
-not block the request event loop. This is the seam M3's LangGraph analyzer replaces.
+Response parsing is shared (`parsing.py`). The blocking Bedrock call is offloaded with
+`asyncio.to_thread` so it does not block the request event loop.
 
 LangChain ChatBedrockConverse: https://python.langchain.com/docs/integrations/chat/bedrock/
 """
@@ -11,20 +10,16 @@ LangChain ChatBedrockConverse: https://python.langchain.com/docs/integrations/ch
 from __future__ import annotations
 
 import asyncio
-import json
-import re
 
 from langchain_aws import ChatBedrockConverse
 
 from app.domain.incidents.entities import AnalysisDraft
 from app.domain.incidents.prompts import SYSTEM_PROMPT, build_user_message
 from app.infrastructure.config import Settings
+from app.infrastructure.llm.parsing import parse_analysis
 
-_ANALYSIS_FIELDS = ("severity", "summary", "root_cause", "recommended_action", "confidence")
-
-
-class AnalysisError(RuntimeError):
-    """The model returned something that is not a usable 5-field analysis."""
+# Re-exported so existing imports (tests) keep working after parsing moved to parsing.py.
+from app.infrastructure.llm.parsing import AnalysisError  # noqa: F401  (re-export)
 
 
 class BedrockAnalyzer:
@@ -46,7 +41,7 @@ class BedrockAnalyzer:
 
     async def analyze(self, context: dict) -> AnalysisDraft:
         raw = await asyncio.to_thread(self._invoke, context)
-        parsed = _parse_analysis(raw)
+        parsed = parse_analysis(raw)
         return AnalysisDraft(model_id=self._settings.model_id, **parsed)
 
     def _invoke(self, context: dict) -> str:
@@ -57,23 +52,3 @@ class BedrockAnalyzer:
             ]
         )
         return response.content if isinstance(response.content, str) else str(response.content)
-
-
-def _strip_fences(text: str) -> str:
-    """Remove ```json ... ``` fences the model sometimes wraps JSON in."""
-    return re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
-
-
-def _parse_analysis(raw: str) -> dict:
-    """Parse and validate the model's JSON payload into the 5 contract fields."""
-    text = _strip_fences(raw)
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise AnalysisError(f"model did not return valid JSON: {text[:200]}") from exc
-    if not isinstance(data, dict):
-        raise AnalysisError(f"model returned a non-object JSON value: {type(data).__name__}")
-    missing = [f for f in _ANALYSIS_FIELDS if f not in data]
-    if missing:
-        raise AnalysisError(f"model response missing fields: {missing}")
-    return {f: data[f] for f in _ANALYSIS_FIELDS}

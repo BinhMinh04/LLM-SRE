@@ -12,7 +12,7 @@ import pytest
 from app.domain.incidents.confidence import confidence_to_score
 from app.domain.incidents.fingerprint import fingerprint
 from app.domain.incidents.prompts import build_user_message
-from app.infrastructure.llm.bedrock_analyzer import AnalysisError, _parse_analysis
+from app.infrastructure.llm.parsing import AnalysisError, parse_analysis
 
 _SAMPLES = Path(__file__).parent / "samples"
 
@@ -69,29 +69,29 @@ _VALID = (
 
 
 def test_parse_analysis_valid():
-    out = _parse_analysis(_VALID)
+    out = parse_analysis(_VALID)
     assert out["severity"] == "critical"
     assert out["confidence"] == "high"
 
 
 def test_parse_analysis_strips_code_fences():
     fenced = f"```json\n{_VALID}\n```"
-    assert _parse_analysis(fenced)["summary"] == "s"
+    assert parse_analysis(fenced)["summary"] == "s"
 
 
 def test_parse_analysis_missing_field_raises():
     with pytest.raises(AnalysisError):
-        _parse_analysis('{"severity":"info","summary":"s"}')
+        parse_analysis('{"severity":"info","summary":"s"}')
 
 
 def test_parse_analysis_non_json_raises():
     with pytest.raises(AnalysisError):
-        _parse_analysis("I could not analyze this incident.")
+        parse_analysis("I could not analyze this incident.")
 
 
 def test_parse_analysis_non_object_raises():
     with pytest.raises(AnalysisError):
-        _parse_analysis("[1, 2, 3]")
+        parse_analysis("[1, 2, 3]")
 
 
 # --- both canonical sample shapes --------------------------------------------

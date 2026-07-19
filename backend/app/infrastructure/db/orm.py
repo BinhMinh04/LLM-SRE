@@ -17,7 +17,11 @@ from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, fun
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-EMBED_DIM = 1024  # Amazon Titan Text Embeddings v2
+from app.infrastructure.config import get_settings
+
+# Embedding dimension is provider-specific (Titan 1024 / Jina 768) and configurable (decision 0016).
+# A pgvector column has a fixed dimension, so one database serves one embedding provider at a time.
+EMBED_DIM = get_settings().embedding_dim
 
 
 class Base(DeclarativeBase):
