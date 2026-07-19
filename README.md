@@ -35,11 +35,15 @@ iim/
 │       └── samples/       # Sample context (anonymized, NOT real data)
 │           ├── infra_oom.json         # infra case: OOM after a deploy
 │           └── apicost_overage.json   # third-party API cost case
-├── frontend/              # Next.js + shadcn/ui board
+├── frontend/              # React (Vite) + shadcn/ui board
 └── infra/                 # docker-compose, config, alarm → service mapping
 ```
 
-## Run the AI layer (Step 0)
+## Run the AI brain directly (Step 0 — dev harness)
+
+In the full app the analysis runs **inside the backend** (FastAPI) when an incident is ingested — you
+don't call it by hand. This standalone invocation is just a dev shortcut to exercise the Step 0 brain on
+a sample while the backend is being built:
 
 ```bash
 pip install boto3

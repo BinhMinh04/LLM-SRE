@@ -51,3 +51,5 @@ tmp/
 docs/
 scripts/
 AGENTS.md
+harness.db
+harness.db-*

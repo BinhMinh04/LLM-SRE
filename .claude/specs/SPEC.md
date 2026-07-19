@@ -9,7 +9,7 @@
   [PLAN.md](./PLAN.md) · [OPEN_QUESTIONS.md](./OPEN_QUESTIONS.md)
 
 > This spec evolves the original AWS-native serverless design into a **full-stack, self-hostable**
-> build: **Next.js + shadcn/ui** frontend, **FastAPI + LangChain** backend, **RAG over pgvector**, run
+> build: **React (Vite) + shadcn/ui** frontend, **FastAPI + LangChain** backend, **RAG over pgvector**, run
 > locally with **Docker Compose**. It **reuses the analysis brain** already implemented in
 > `backend/ai/analyze_incident.py` and keeps the serverless (Lambda/DynamoDB/S3) design as a future deployment
 > path — see ARCHITECTURE.md for that variant.
@@ -40,7 +40,7 @@ product:
 - **Multi-agent** orchestration (LangGraph): specialist agents retrieve per knowledge source in
   parallel, a diagnosis agent forms the root-cause hypothesis, and a critic agent verifies grounding
   and can trigger another retrieval round before the answer is finalized (corrective RAG).
-- A **Next.js + shadcn/ui** board that lists incidents, shows context + AI analysis + the evidence
+- A **React (Vite) + shadcn/ui** board that lists incidents, shows context + AI analysis + the evidence
   used, and streams analysis live over **SSE**.
 - **Two ingestion paths**: automatic (AWS EventBridge to collector) and manual (upload / paste JSON /
   REST from the UI) so the system is demoable without live AWS traffic.
@@ -110,15 +110,16 @@ product:
                                              +------------------------------------------------------+
                                                                                     |
                      SSE stream (updates + tokens)                                  v
-   Next.js board (shadcn/ui)  <-------------------------------------  FastAPI  -->  PostgreSQL + pgvector
+   React board (shadcn/ui)    <-------------------------------------  FastAPI  -->  PostgreSQL + pgvector
         |                                                                            (incidents, analyses,
         +-- optional: "Create ticket" --> Azure DevOps (one-way)                      documents, chunks, cache)
 ```
 
 ### 5.1 Components
 
-- **Frontend** — Next.js (App Router) + shadcn/ui + Tailwind. Server components for data fetch, a
-  client component subscribing to the SSE incident stream. Talks to FastAPI only.
+- **Frontend** — React SPA (Vite) + shadcn/ui + Tailwind, client-side routing (React Router). Fetches
+  from FastAPI and subscribes to the SSE incident stream; built to static assets (served by nginx locally,
+  S3 + CloudFront in the cloud path). Talks to FastAPI only.
 - **Backend** — FastAPI (Python 3.11+). Async endpoints. LangChain orchestrates retrieval + LLM.
 - **Analysis brain** — reuse `SYSTEM_PROMPT`, the strict JSON output schema, `build_user_message()`,
   and `fingerprint()` from `backend/ai/analyze_incident.py`. The Bedrock call is wrapped in LangChain instead
@@ -170,22 +171,26 @@ iim/
     migrations/            # alembic
     pyproject.toml         # project + deps, managed by uv
     uv.lock                # pinned, reproducible lockfile (uv sync)
-  frontend/                # Next.js + shadcn/ui (new)
-    app/
-      page.tsx             # board
-      incidents/[id]/page.tsx
-      incidents/new/page.tsx
-      knowledge/page.tsx
-      login/page.tsx
-    components/            # shadcn/ui-based components
-    lib/                  # api client, sse hook
+  frontend/                # React (Vite) + shadcn/ui SPA (new)
+    index.html
+    vite.config.ts
+    src/
+      main.tsx             # app entry + router (React Router)
+      routes/
+        board.tsx          # /               (incident list)
+        incident.tsx       # /incidents/:id
+        new-incident.tsx   # /incidents/new
+        knowledge.tsx      # /knowledge
+        login.tsx          # /login
+      components/          # shadcn/ui-based components
+      lib/                 # api client, sse hook
   infra/
     docker-compose.yml
     .env.example
 ```
 
-Official docs: FastAPI https://fastapi.tiangolo.com/ · Next.js App Router
-https://nextjs.org/docs/app · shadcn/ui https://ui.shadcn.com/docs · LangChain (Python)
+Official docs: FastAPI https://fastapi.tiangolo.com/ · React https://react.dev/ · Vite
+https://vitejs.dev/ · shadcn/ui (Vite) https://ui.shadcn.com/docs/installation/vite · LangChain (Python)
 https://python.langchain.com/docs/introduction/ · LangChain AWS
 https://python.langchain.com/docs/integrations/providers/aws/ · pgvector
 https://github.com/pgvector/pgvector · SSE (MDN)
@@ -461,14 +466,14 @@ yields a different fingerprint, forcing re-analysis after a deploy.
 
 ---
 
-## 9. Frontend design (Next.js + shadcn/ui)
+## 9. Frontend design (React + shadcn/ui)
 
 ### 9.1 Pages / routes
 
 | Route | Purpose |
 |---|---|
 | `/` (Board) | Live incident list (severity chip, service, age, status). SSE-updated. |
-| `/incidents/[id]` | Detail: gathered context, AI analysis (5 fields), evidence chunks used, timeline (anomaly vs deploy). "Create ticket" button (stretch). |
+| `/incidents/:id` | Detail: gathered context, AI analysis (5 fields), evidence chunks used, timeline (anomaly vs deploy). "Create ticket" button (stretch). |
 | `/incidents/new` | Manual ingestion: paste JSON or upload a context file -> `POST /api/incidents`. |
 | `/knowledge` | RAG library: upload/list/reindex documents by source_type + service. |
 | `/login` | SSO/OAuth entry. |
@@ -567,11 +572,11 @@ services:
     depends_on: [db]
     ports: ["8000:8000"]
   frontend:
-    build: ../frontend
+    build: ../frontend                          # Vite build served by nginx
     environment:
-      NEXT_PUBLIC_API_BASE: http://localhost:8000
+      VITE_API_BASE: http://localhost:8000
     depends_on: [backend]
-    ports: ["3000:3000"]
+    ports: ["3000:80"]
 volumes:
   pgdata:
 ```
@@ -625,7 +630,7 @@ the few worth adopting even in the local build.
 | Ingestion decoupling / dedup | **Amazon SQS** (queue incidents to an analysis worker) | Cloud path — smooths bursts, avoids duplicate graph runs |
 | Vector DB (managed) | **Aurora PostgreSQL Serverless v2 + pgvector** (or RDS for PostgreSQL) | Cloud path — replaces the compose `db` |
 | Backend host | **AWS App Runner** or **ECS Fargate** (container) | Cloud path — see Lambda note |
-| Frontend host | **AWS Amplify Hosting** or **CloudFront + S3** | Cloud path |
+| Frontend host | **Amazon S3 + CloudFront** (static React SPA, matches ARCHITECTURE.md) | Cloud path |
 | Cost guardrail | **AWS Budgets** alert | Before any continuous run |
 
 **Why not Lambda for the backend?** The multi-agent graph has a critic loop and streams tokens over SSE;
@@ -716,7 +721,7 @@ https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/
 3. **M3 — RAG + multi-agent graph.** Document upload, chunk/embed (Titan), pgvector retrieval; then the
    LangGraph agent graph (triage + parallel retrievers + diagnosis + critic loop + action + synthesize)
    with model tiering, replacing the M2 single-call baseline.
-4. **M4 — Frontend board.** Next.js + shadcn/ui board, incident detail, manual ingestion page.
+4. **M4 — Frontend board.** React (Vite) + shadcn/ui board, incident detail, manual ingestion page.
 5. **M5 — SSE.** Streaming analysis + live board feed.
 6. **M6 — Auth (SSO/OAuth).**
 7. **M7 — Knowledge library UI + auto-postmortem write-back.**

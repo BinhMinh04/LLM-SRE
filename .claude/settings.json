@@ -25,31 +25,5 @@
       "Bash(git checkout main)",
       "Bash(git checkout master)"
     ]
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-branch.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-branch.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/block-main-push.sh"
-          }
-        ]
-      }
-    ]
   }
 }
