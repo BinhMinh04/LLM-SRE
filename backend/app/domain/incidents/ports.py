@@ -12,6 +12,15 @@ from datetime import datetime
 from typing import Protocol
 
 from app.domain.incidents.entities import Analysis, AnalysisDraft, Incident
+from app.domain.shared import Clock, UnitOfWork  # re-exported for existing imports
+
+__all__ = [
+    "Analyzer",
+    "IncidentRepository",
+    "AnalysisCacheRepository",
+    "Clock",
+    "UnitOfWork",
+]
 
 
 class Analyzer(Protocol):
@@ -50,15 +59,3 @@ class AnalysisCacheRepository(Protocol):
     async def get_valid(self, fingerprint: str, now: datetime) -> Analysis | None: ...
 
     async def put(self, fingerprint: str, analysis_id: uuid.UUID, expires_at: datetime) -> None: ...
-
-
-class Clock(Protocol):
-    """A source of the current time (injected so the TTL logic is testable and pure)."""
-
-    def now(self) -> datetime: ...
-
-
-class UnitOfWork(Protocol):
-    """Transaction boundary owned by the application layer."""
-
-    async def commit(self) -> None: ...

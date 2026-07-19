@@ -12,6 +12,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.domain.documents.entities import Document
 from app.domain.incidents.entities import Analysis, Incident
 
 
@@ -107,6 +108,49 @@ class IncidentDetail(BaseModel):
             created_at=incident.created_at,
             updated_at=incident.updated_at,
             analysis=AnalysisOut.from_domain(analysis) if analysis else None,
+        )
+
+
+class DocumentIngestRequest(BaseModel):
+    """`POST /api/documents` body: metadata + the raw text/markdown to index."""
+
+    title: str
+    source_type: str  # runbook | postmortem | architecture | vendor (validated at the controller)
+    service: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    content: str
+
+
+class DocumentCreatedResponse(BaseModel):
+    """`POST /api/documents` response: the stored document id and how many chunks were indexed."""
+
+    document_id: uuid.UUID
+    chunks: int
+
+
+class DocumentSummary(BaseModel):
+    """One row in `GET /api/documents`."""
+
+    id: uuid.UUID
+    title: str
+    source_type: str
+    service: str | None
+    tags: list[str]
+    chunk_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_domain(cls, document: Document, chunk_count: int) -> "DocumentSummary":
+        return cls(
+            id=document.id,
+            title=document.title,
+            source_type=document.source_type,
+            service=document.service,
+            tags=list(document.tags),
+            chunk_count=chunk_count,
+            created_at=document.created_at,
+            updated_at=document.updated_at,
         )
 
 
