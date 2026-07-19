@@ -13,8 +13,16 @@ from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.domain.incidents.entities import AnalysisDraft
-from app.infrastructure.db.orm import AnalysisCacheRow, AnalysisRow, Base, IncidentRow
-from app.interface.http.deps import get_analyzer, get_session
+from app.infrastructure.db.orm import (
+    EMBED_DIM,
+    AnalysisCacheRow,
+    AnalysisRow,
+    Base,
+    DocChunkRow,
+    DocumentRow,
+    IncidentRow,
+)
+from app.interface.http.deps import get_analyzer, get_embedder, get_session
 from app.main import app
 
 pytestmark = pytest.mark.asyncio
@@ -31,7 +39,7 @@ _CTX = {
 
 
 class _FakeAnalyzer:
-    async def analyze(self, context: dict) -> AnalysisDraft:
+    async def analyze(self, context: dict, evidence=None) -> AnalysisDraft:
         return AnalysisDraft(
             severity="critical",
             summary="GCM OOM after deploy",
@@ -40,6 +48,14 @@ class _FakeAnalyzer:
             confidence="high",
             model_id="test-model",
         )
+
+
+class _FakeEmbedder:
+    async def embed_documents(self, texts):
+        return [[0.1] * EMBED_DIM for _ in texts]
+
+    async def embed_query(self, text):
+        return [0.1] * EMBED_DIM
 
 
 @pytest.fixture()
@@ -58,6 +74,8 @@ async def client():
         await s.execute(delete(AnalysisCacheRow))
         await s.execute(delete(AnalysisRow))
         await s.execute(delete(IncidentRow))
+        await s.execute(delete(DocChunkRow))
+        await s.execute(delete(DocumentRow))
         await s.commit()
 
     async def _override_session():
@@ -66,6 +84,7 @@ async def client():
 
     app.dependency_overrides[get_session] = _override_session
     app.dependency_overrides[get_analyzer] = lambda: _FakeAnalyzer()
+    app.dependency_overrides[get_embedder] = lambda: _FakeEmbedder()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:

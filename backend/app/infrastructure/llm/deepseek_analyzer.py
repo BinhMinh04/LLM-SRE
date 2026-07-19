@@ -10,8 +10,13 @@ from __future__ import annotations
 
 import httpx
 
+from app.domain.documents.entities import RetrievedChunk
 from app.domain.incidents.entities import AnalysisDraft
-from app.domain.incidents.prompts import SYSTEM_PROMPT, build_user_message
+from app.domain.incidents.prompts import (
+    RETRIEVED_KNOWLEDGE_RULES,
+    SYSTEM_PROMPT,
+    build_user_message,
+)
 from app.infrastructure.config import Settings
 from app.infrastructure.llm.parsing import AnalysisError, parse_analysis
 
@@ -20,15 +25,17 @@ class DeepSeekAnalyzer:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def analyze(self, context: dict) -> AnalysisDraft:
+    async def analyze(
+        self, context: dict, evidence: list[RetrievedChunk] | None = None
+    ) -> AnalysisDraft:
         if not self._settings.deepseek_api_key:
             raise AnalysisError("DEEPSEEK_API_KEY is not set")
         url = self._settings.deepseek_base_url.rstrip("/") + "/chat/completions"
         payload = {
             "model": self._settings.deepseek_model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_user_message(context)},
+                {"role": "system", "content": SYSTEM_PROMPT + (RETRIEVED_KNOWLEDGE_RULES if evidence else "")},
+                {"role": "user", "content": build_user_message(context, evidence)},
             ],
             "temperature": 0.2,
             "max_tokens": 600,

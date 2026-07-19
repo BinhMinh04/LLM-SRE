@@ -13,12 +13,12 @@ from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.application.documents.ingest import IngestDocument
-from app.infrastructure.db.document_repository import (
+from app.infrastructure.db.orm import EMBED_DIM, Base, DocChunkRow, DocumentRow
+from app.infrastructure.db.repositories import (
     SqlAlchemyDocumentRepository,
     SqlAlchemyRetriever,
+    SqlAlchemyUnitOfWork,
 )
-from app.infrastructure.db.orm import Base, DocChunkRow, DocumentRow
-from app.infrastructure.db.repositories import SqlAlchemyUnitOfWork
 
 pytestmark = pytest.mark.asyncio
 
@@ -26,7 +26,7 @@ _DB_URL = os.environ.get("TEST_DATABASE_URL") or os.environ.get(
     "DATABASE_URL", "postgresql+asyncpg://iim:iim@localhost:5432/iim"
 )
 
-_DIM = 1024
+_DIM = EMBED_DIM
 
 
 def _one_hot(s: str) -> list[float]:

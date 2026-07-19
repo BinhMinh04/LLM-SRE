@@ -10,13 +10,19 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.application.incidents.ingest import IngestIncident
+from app.application.incidents.analyze_rag import IngestIncidentWithRag
+from app.domain.documents.ports import DocumentRepository
 from app.domain.incidents.ports import IncidentRepository
-from app.interface.http.deps import get_incident_repository, get_ingest_incident
-from app.interface.http.dto import (
+from app.interface.http.deps import (
+    get_document_repository,
+    get_incident_repository,
+    get_ingest_incident,
+)
+from app.interface.http.dto import mappers
+from app.interface.http.dto.request import IncidentIngestRequest
+from app.interface.http.dto.response import (
     IncidentCreatedResponse,
     IncidentDetail,
-    IncidentIngestRequest,
     IncidentSummary,
 )
 
@@ -26,7 +32,7 @@ router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 @router.post("", response_model=IncidentCreatedResponse, status_code=status.HTTP_201_CREATED)
 async def create_incident(
     body: IncidentIngestRequest,
-    ingest: IngestIncident = Depends(get_ingest_incident),
+    ingest: IngestIncidentWithRag = Depends(get_ingest_incident),
 ) -> IncidentCreatedResponse:
     """Ingest one incident context and analyze it (cache-first). Returns the incident id."""
     if not body.context.get("service"):
@@ -59,17 +65,21 @@ async def list_incidents(
         limit=limit,
         offset=offset,
     )
-    return [IncidentSummary.from_domain(incident, analysis) for incident, analysis in rows]
+    return [mappers.incident_summary(incident, analysis) for incident, analysis in rows]
 
 
 @router.get("/{incident_id}", response_model=IncidentDetail)
 async def get_incident(
     incident_id: uuid.UUID,
     repo: IncidentRepository = Depends(get_incident_repository),
+    documents: DocumentRepository = Depends(get_document_repository),
 ) -> IncidentDetail:
-    """Return one incident with its context and analysis."""
+    """Return one incident with its context, analysis, and the evidence chunks it cited."""
     incident = await repo.get(incident_id)
     if incident is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="incident not found")
     analysis = await repo.latest_analysis(incident_id)
-    return IncidentDetail.from_domain(incident, analysis)
+    evidence = (
+        await documents.evidence_refs(analysis.evidence_chunk_ids) if analysis else []
+    )
+    return mappers.incident_detail(incident, analysis, evidence)

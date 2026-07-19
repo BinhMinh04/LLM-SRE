@@ -1,29 +1,19 @@
 """SQLAlchemy document repository + pgvector retriever (implements the RAG ports).
 
-`SqlAlchemyDocumentRepository` persists a document and its chunks and lists documents with chunk
-counts. `SqlAlchemyRetriever` runs the cosine-similarity search from docs/product/rag.md 7.3 using
-pgvector's `<=>` (`cosine_distance`), pre-filtered by service/source_type. No ORM type leaks out.
+`SqlAlchemyRetriever` runs the cosine-similarity search from docs/product/rag.md 7.3 using pgvector's
+`<=>` (`cosine_distance`), pre-filtered by service/source_type and joined to the document title.
 """
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.documents.entities import Document, EmbeddedChunk, RetrievedChunk
+from app.domain.documents.entities import Document, EmbeddedChunk, EvidenceRef, RetrievedChunk
 from app.infrastructure.db.orm import DocChunkRow, DocumentRow
-
-
-def _document_to_domain(row: DocumentRow) -> Document:
-    return Document(
-        title=row.title,
-        source_type=row.source_type,
-        service=row.service,
-        tags=list(row.tags or []),
-        id=row.id,
-        created_at=row.created_at,
-        updated_at=row.updated_at,
-    )
+from app.infrastructure.db.repositories.mappers import document_to_domain
 
 
 class SqlAlchemyDocumentRepository:
@@ -52,7 +42,7 @@ class SqlAlchemyDocumentRepository:
                 )
             )
         await self._s.flush()
-        return _document_to_domain(row)
+        return document_to_domain(row)
 
     async def list(self) -> list[tuple[Document, int]]:
         stmt = (
@@ -62,7 +52,26 @@ class SqlAlchemyDocumentRepository:
             .order_by(DocumentRow.created_at.desc())
         )
         rows = (await self._s.execute(stmt)).all()
-        return [(_document_to_domain(doc), count) for doc, count in rows]
+        return [(document_to_domain(doc), count) for doc, count in rows]
+
+    async def evidence_refs(self, chunk_ids: list[uuid.UUID]) -> list[EvidenceRef]:
+        """Resolve chunk ids to their (source_type, document title) for an analysis response."""
+        if not chunk_ids:
+            return []
+        stmt = (
+            select(DocChunkRow.id, DocChunkRow.source_type, DocumentRow.title)
+            .join(DocumentRow, DocumentRow.id == DocChunkRow.document_id)
+            .where(DocChunkRow.id.in_(chunk_ids))
+        )
+        rows = (await self._s.execute(stmt)).all()
+        by_id = {cid: (st, title) for cid, st, title in rows}
+        # Preserve the analysis's chunk order.
+        refs: list[EvidenceRef] = []
+        for cid in chunk_ids:
+            if cid in by_id:
+                st, title = by_id[cid]
+                refs.append(EvidenceRef(chunk_id=cid, source_type=st, title=title))
+        return refs
 
 
 class SqlAlchemyRetriever:
@@ -79,7 +88,9 @@ class SqlAlchemyRetriever:
         min_similarity: float = 0.0,
     ) -> list[RetrievedChunk]:
         distance = DocChunkRow.embedding.cosine_distance(query_embedding)
-        stmt = select(DocChunkRow, distance.label("distance"))
+        stmt = select(DocChunkRow, DocumentRow.title, distance.label("distance")).join(
+            DocumentRow, DocumentRow.id == DocChunkRow.document_id
+        )
         if service is not None:
             stmt = stmt.where(or_(DocChunkRow.service == service, DocChunkRow.service.is_(None)))
         if source_type is not None:
@@ -88,7 +99,7 @@ class SqlAlchemyRetriever:
 
         rows = (await self._s.execute(stmt)).all()
         results: list[RetrievedChunk] = []
-        for row, dist in rows:
+        for row, title, dist in rows:
             similarity = 1.0 - float(dist)
             if similarity >= min_similarity:
                 results.append(
@@ -97,6 +108,7 @@ class SqlAlchemyRetriever:
                         document_id=row.document_id,
                         source_type=row.source_type,
                         service=row.service,
+                        title=title,
                         content=row.content,
                         similarity=similarity,
                     )

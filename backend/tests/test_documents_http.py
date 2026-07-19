@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.infrastructure.db.orm import Base, DocChunkRow, DocumentRow
+from app.infrastructure.db.orm import EMBED_DIM, Base, DocChunkRow, DocumentRow
 from app.interface.http.deps import get_embedder, get_session
 from app.main import app
 
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.asyncio
 _DB_URL = os.environ.get("TEST_DATABASE_URL") or os.environ.get(
     "DATABASE_URL", "postgresql+asyncpg://iim:iim@localhost:5432/iim"
 )
-_DIM = 1024
+_DIM = EMBED_DIM
 
 
 class _FakeEmbedder:
