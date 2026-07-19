@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # asyncpg driver; overridden by DATABASE_URL in compose.
     database_url: str = "postgresql+asyncpg://iim:iim@localhost:5432/iim"
 
+    # --- Analysis pipeline ---
+    analysis_mode: str = "single"  # single (RAG single-call) | graph (multi-agent LangGraph)
+
     # --- LLM provider (decision 0016) ---
     llm_provider: str = "bedrock"  # bedrock | deepseek
     max_rounds: int = 2  # critic corrective-retrieval loop cap

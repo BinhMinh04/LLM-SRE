@@ -67,7 +67,7 @@ class IngestIncident:
                     confidence=confidence_to_score(draft.confidence),
                     cache_state="MISS",
                     model_id=draft.model_id,
-                    evidence_chunk_ids=[],
+                    evidence_chunk_ids=list(draft.evidence_chunk_ids),
                 )
             )
             await self.cache.put(
