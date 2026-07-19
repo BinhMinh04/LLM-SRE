@@ -13,6 +13,9 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "pgvector>=0.3",
+    # M2: analysis brain calls Bedrock via LangChain (also provides boto3 for Step 0 reuse).
+    "langchain-aws>=0.2",
+    "langchain-core>=0.3",
 ]
 
 [dependency-groups]
@@ -31,3 +34,7 @@ package = false
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

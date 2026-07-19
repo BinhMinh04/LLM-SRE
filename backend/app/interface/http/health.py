@@ -1,10 +1,12 @@
 """Liveness / readiness endpoint."""
 
+from __future__ import annotations
+
 from fastapi import APIRouter
 
-from app.core.config import get_settings
-from app.core.db import ping_db
-from app.schemas.health import HealthResponse
+from app.infrastructure.config import get_settings
+from app.infrastructure.db.session import ping_db
+from app.interface.http.dto import HealthResponse
 
 router = APIRouter()
 
