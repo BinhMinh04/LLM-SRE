@@ -1,9 +1,9 @@
-"""Async SQLAlchemy engine + session, and a lightweight DB liveness ping.
+"""Async SQLAlchemy engine + session factory, and a lightweight DB liveness ping.
 
 SQLAlchemy async docs: https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html
 """
 
-from collections.abc import AsyncGenerator
+from __future__ import annotations
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import get_settings
+from app.infrastructure.config import get_settings
 
 _settings = get_settings()
 
@@ -28,12 +28,6 @@ SessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
 )
-
-
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency yielding an async DB session."""
-    async with SessionLocal() as session:
-        yield session
 
 
 async def ping_db() -> bool:

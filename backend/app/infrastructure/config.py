@@ -1,7 +1,7 @@
 """Application settings, loaded from environment variables / .env.
 
-Defaults match the Step 0 brain (`ai/analyze_incident.py`) so the API behaves the same when it
-wraps `analyze()` in M2. See `.claude/specs/SPEC.md` section 13 for the full env var list.
+Defaults match the Step 0 brain (`domain/incidents/prompts.py`) so the API behaves the same when it
+wraps the analysis. See `.claude/specs/SPEC.md` section 13 for the full env var list.
 
 pydantic-settings docs: https://docs.pydantic.dev/latest/concepts/pydantic_settings/
 """
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # asyncpg driver; overridden by DATABASE_URL in compose.
     database_url: str = "postgresql+asyncpg://iim:iim@localhost:5432/iim"
 
-    # --- Bedrock / models (reused from Step 0 constants; see ai/analyze_incident.py) ---
+    # --- Bedrock / models (reused from Step 0 constants) ---
     aws_region: str = "ap-southeast-1"
     model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0"  # main tier (diagnosis, critic)
     fast_model_id: str = "anthropic.claude-3-5-haiku-20241022-v1:0"  # Haiku tier (triage, etc.)
