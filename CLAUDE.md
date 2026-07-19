@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 automatically-collected incident context bundle into an LLM (AWS Bedrock, Claude models) and returns a
 structured triage analysis as JSON: `severity`, `summary`, `root_cause`, `recommended_action`, `confidence`.
 
-The project is being built in numbered steps. Only **Step 0** exists today: `ai/analyze_incident.py`, a
+The project is being built in numbered steps. Only **Step 0** exists today: `backend/ai/analyze_incident.py`, a
 standalone CLI that needs no AWS infrastructure other than Bedrock access. Later steps (referenced in code
 and `.gitignore` but **not yet built**) add persistence and a UI — see Roadmap below. Do not assume that
 infrastructure exists; check before referencing it.
@@ -18,8 +18,8 @@ infrastructure exists; check before referencing it.
 ```bash
 pip install boto3
 export AWS_REGION=ap-southeast-1        # account/role must have Bedrock access to the model
-python ai/analyze_incident.py ai/samples/infra_oom.json        # infrastructure incident (OOM/5xx)
-python ai/analyze_incident.py ai/samples/apicost_overage.json  # non-infrastructure incident (API cost)
+python backend/ai/analyze_incident.py backend/ai/samples/infra_oom.json        # infrastructure incident (OOM/5xx)
+python backend/ai/analyze_incident.py backend/ai/samples/apicost_overage.json  # non-infrastructure incident (API cost)
 ```
 
 Running with a sample calls the LLM once (cache miss), then re-runs the same incident to demonstrate a
@@ -30,7 +30,7 @@ cache hit (0 tokens). There is no test suite yet (`.gitignore` anticipates `pyte
   (e.g. `apac.anthropic.claude-...`) rather than the bare model id — confirm against the Bedrock console
   (Model access) if a call fails.
 
-## Architecture (`ai/analyze_incident.py`)
+## Architecture (`backend/ai/analyze_incident.py`)
 
 The pipeline is: **incident context dict → fingerprint (cache check) → build user message → Bedrock
 `converse` → parse JSON → cache**. Four pieces carry the design:
@@ -58,7 +58,7 @@ process-local and not actually time-expired in Step 0.
 ## Incident context shape
 
 Input is a JSON object describing one incident. All fields are optional except `service`; the two files in
-`ai/samples/` are the canonical examples of the two supported shapes:
+`backend/ai/samples/` are the canonical examples of the two supported shapes:
 
 - **Infrastructure** (`infra_oom.json`): `ecs`, `alb`, `metrics`, `sample_logs`, `recent_deploy`.
 - **Non-infrastructure** (`apicost_overage.json`): `alert` (human description) plus `metrics` / `sample_logs`.

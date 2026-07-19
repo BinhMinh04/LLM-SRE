@@ -48,3 +48,6 @@ tmp/
 .claude/logs/
 .claude/history/
 .claude/cache/
+docs/
+scripts/
+AGENTS.md

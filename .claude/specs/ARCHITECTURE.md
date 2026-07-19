@@ -10,7 +10,7 @@
  CloudWatch Alarm         │              Analyzer Lambda (Python)         │
  (ALB 5xx / ECS mem)  ─┐  │  1. collect_context()  [read-only AWS APIs]   │
  Logs Metric Filter    ├─▶│  2. fingerprint + cache lookup (DynamoDB)      │──▶ Bedrock
- (FATAL / OOMKilled)  ─┘  │  3. analyze()  [ai/analyze_incident.py]  ◀─────┼──  (Haiku 4.5,
+ (FATAL / OOMKilled)  ─┘  │  3. analyze()  [backend/ai/analyze_incident.py]  ◀─────┼──  (Haiku 4.5,
         │  (EventBridge)  │  4. write incident + cache (DynamoDB)          │    Sonnet 5 opt.)
         │                 │  5. create/dedup ticket (if severity=critical) │
    (SNS: human email)     └───────────────┬───────────────────────┬───────┘
@@ -127,7 +127,7 @@ Each ADR: **Context → Decision → Consequences**.
 - **Context:** future potential = "just write a new collector" for another cloud.
 - **Decision:** a `Collector` Protocol with a single `collect_context(event) -> IncidentContext` method;
   Phase 1 ships only `AWSCollector`. `IncidentContext` is pinned by the existing `build_user_message()`
-  contract in `ai/analyze_incident.py`.
+  contract in `backend/ai/analyze_incident.py`.
 - **Consequences:** the AI layer is cloud-agnostic; adding Azure later touches only a new class. No Azure
   code is written now (non-goal).
 

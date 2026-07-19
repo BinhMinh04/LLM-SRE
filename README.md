@@ -29,14 +29,14 @@ Alert (CloudWatch / Metric filter) → EventBridge → Lambda (read-only context
 
 ```
 iim/
-├── ai/                    # Incident analysis AI layer (Step 0)
-│   ├── analyze_incident.py
-│   └── samples/           # Sample context (anonymized, NOT real data)
-│       ├── infra_oom.json         # infra case: OOM after a deploy
-│       └── apicost_overage.json   # third-party API cost case
-├── lambda/                # Triage + context collector (Step 1-3)
-├── board/                 # React board, deployed to S3
-└── infra/                 # Config, alarm → service mapping
+├── backend/               # FastAPI + LangChain backend (uv), incl. reused Step 0 brain
+│   └── ai/                # Incident analysis AI layer (Step 0)
+│       ├── analyze_incident.py
+│       └── samples/       # Sample context (anonymized, NOT real data)
+│           ├── infra_oom.json         # infra case: OOM after a deploy
+│           └── apicost_overage.json   # third-party API cost case
+├── frontend/              # Next.js + shadcn/ui board
+└── infra/                 # docker-compose, config, alarm → service mapping
 ```
 
 ## Run the AI layer (Step 0)
@@ -45,7 +45,7 @@ iim/
 pip install boto3
 export AWS_REGION=ap-southeast-1        # needs Amazon Bedrock permission
 
-cd ai
+cd backend/ai
 python analyze_incident.py samples/infra_oom.json
 python analyze_incident.py samples/apicost_overage.json
 ```
@@ -59,7 +59,7 @@ The script runs twice: run 1 calls the LLM (cache miss), run 2 returns instantly
 
 - **Do NOT commit secrets** (Azure DevOps PAT, AWS keys, tokens). Keep them in AWS Secrets Manager
   or environment variables. `.gitignore` already blocks the sensitive files.
-- **Do NOT use real customer data.** Every sample in `ai/samples/` is fake/anonymized. For real
+- **Do NOT use real customer data.** Every sample in `backend/ai/samples/` is fake/anonymized. For real
   testing, use a self-built sandbox that generates fake incidents (see Step 3 in the build plan).
 
 ## Cost
