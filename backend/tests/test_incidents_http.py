@@ -22,7 +22,7 @@ from app.infrastructure.db.orm import (
     DocumentRow,
     IncidentRow,
 )
-from app.interface.http.deps import get_analyzer, get_embedder, get_session
+from app.interface.http.deps import get_base_analyzer, get_embedder, get_session
 from app.main import app
 
 pytestmark = pytest.mark.asyncio
@@ -83,7 +83,7 @@ async def client():
             yield s
 
     app.dependency_overrides[get_session] = _override_session
-    app.dependency_overrides[get_analyzer] = lambda: _FakeAnalyzer()
+    app.dependency_overrides[get_base_analyzer] = lambda: _FakeAnalyzer()
     app.dependency_overrides[get_embedder] = lambda: _FakeEmbedder()
 
     transport = ASGITransport(app=app)

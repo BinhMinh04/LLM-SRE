@@ -1,4 +1,4 @@
-"""Tests for RAG-grounded analysis (US-011): query building, evidence rendering, and the use case."""
+"""Tests for RAG-grounded analysis (US-011): query building, evidence rendering, RagAnalyzer."""
 
 import os
 import uuid
@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.application.incidents.analyze_rag import IngestIncidentWithRag
+from app.application.incidents.rag_analyzer import RagAnalyzer
 from app.domain.documents.entities import RetrievedChunk
 from app.domain.incidents.entities import AnalysisDraft
 from app.domain.incidents.prompts import build_retrieval_query, build_user_message
@@ -21,7 +21,7 @@ from app.infrastructure.db.orm import (
     DocumentRow,
     IncidentRow,
 )
-from app.interface.http.deps import get_analyzer, get_embedder, get_session
+from app.interface.http.deps import get_base_analyzer, get_embedder, get_session
 from app.main import app
 
 _CTX = {
@@ -29,6 +29,18 @@ _CTX = {
     "sample_logs": [{"message": "java.lang.OutOfMemoryError: Java heap space"}],
     "recent_deploy": {"version": "1.8.0"},
 }
+
+
+def _chunk(title="GCM OOM Runbook", content="Roll back and raise memory.") -> RetrievedChunk:
+    return RetrievedChunk(
+        id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        source_type="runbook",
+        service="GCM",
+        title=title,
+        content=content,
+        similarity=0.9,
+    )
 
 
 # --- unit: query + prompt (no DB) --------------------------------------------
@@ -42,16 +54,7 @@ def test_build_retrieval_query_uses_key_signals():
 
 
 def test_build_user_message_renders_evidence_block():
-    chunk = RetrievedChunk(
-        id=uuid.uuid4(),
-        document_id=uuid.uuid4(),
-        source_type="runbook",
-        service="GCM",
-        title="GCM OOM Runbook",
-        content="Roll back and raise memory.",
-        similarity=0.8,
-    )
-    msg = build_user_message(_CTX, [chunk])
+    msg = build_user_message(_CTX, [_chunk()])
     assert "[RETRIEVED KNOWLEDGE]" in msg
     assert "[runbook: GCM OOM Runbook]" in msg
     assert "Roll back and raise memory." in msg
@@ -61,42 +64,7 @@ def test_build_user_message_without_evidence_has_no_block():
     assert "[RETRIEVED KNOWLEDGE]" not in build_user_message(_CTX)
 
 
-# --- unit: use case with fakes (no DB) ---------------------------------------
-
-
-class _Repo:
-    def __init__(self):
-        self.incidents, self.analyses = {}, {}
-
-    async def add(self, incident):
-        incident.id = uuid.uuid4()
-        self.incidents[incident.id] = incident
-        return incident
-
-    async def add_analysis(self, analysis):
-        analysis.id = uuid.uuid4()
-        self.analyses[analysis.id] = analysis
-        return analysis
-
-    async def set_status(self, incident_id, status):
-        self.incidents[incident_id].status = status
-
-    async def get(self, i):
-        return self.incidents.get(i)
-
-    async def latest_analysis(self, i):
-        return None
-
-    async def list(self, **_):
-        return []
-
-
-class _Cache:
-    async def get_valid(self, fp, now):
-        return None
-
-    async def put(self, fp, aid, exp):
-        pass
+# --- unit: RagAnalyzer with fakes (no DB) ------------------------------------
 
 
 class _Embedder:
@@ -117,7 +85,7 @@ class _Retriever:
         return [self.chunk]
 
 
-class _CapturingAnalyzer:
+class _CapturingBase:
     def __init__(self):
         self.evidence = None
 
@@ -133,46 +101,17 @@ class _CapturingAnalyzer:
         )
 
 
-class _Clock:
-    def now(self):
-        from datetime import datetime, timezone
-
-        return datetime(2026, 7, 19, tzinfo=timezone.utc)
-
-
-class _UoW:
-    async def commit(self):
-        pass
-
-
 @pytest.mark.asyncio
-async def test_usecase_retrieves_and_passes_evidence():
-    chunk = RetrievedChunk(
-        id=uuid.uuid4(),
-        document_id=uuid.uuid4(),
-        source_type="runbook",
-        service="GCM",
-        title="GCM OOM Runbook",
-        content="Roll back.",
-        similarity=0.9,
-    )
-    repo, retriever, analyzer = _Repo(), _Retriever(chunk), _CapturingAnalyzer()
-    usecase = IngestIncidentWithRag(
-        incidents=repo,
-        cache=_Cache(),
-        analyzer=analyzer,
-        embedder=_Embedder(),
-        retriever=retriever,
-        clock=_Clock(),
-        uow=_UoW(),
-        cache_ttl_seconds=1800,
-    )
-    incident, analysis = await usecase.execute(source="manual", context=dict(_CTX))
+async def test_rag_analyzer_retrieves_and_grounds():
+    chunk = _chunk()
+    base, retriever = _CapturingBase(), _Retriever(chunk)
+    rag = RagAnalyzer(base=base, embedder=_Embedder(), retriever=retriever)
 
-    assert retriever.calls == ["GCM"]  # searched filtered by service
-    assert analyzer.evidence == [chunk]  # evidence passed to the analyzer
-    assert analysis.evidence_chunk_ids == [chunk.id]  # persisted
-    assert analysis.cache_state == "MISS"
+    draft = await rag.analyze(dict(_CTX))
+
+    assert retriever.calls == ["GCM"]  # searched, filtered by service
+    assert base.evidence == [chunk]  # evidence passed to the base analyzer
+    assert draft.evidence_chunk_ids == (chunk.id,)  # reported on the draft
 
 
 # --- http: ingest a doc, analyze, see the citation ---------------------------
@@ -192,7 +131,7 @@ class _ConstEmbedder:
         return [0.2] * EMBED_DIM
 
 
-class _FakeAnalyzer:
+class _FakeBaseAnalyzer:
     async def analyze(self, context, evidence=None):
         cites = ", ".join(f"[{c.source_type}: {c.title}]" for c in (evidence or []))
         return AnalysisDraft(
@@ -227,7 +166,7 @@ async def test_analysis_cites_ingested_document():
             yield s
 
     app.dependency_overrides[get_session] = _override_session
-    app.dependency_overrides[get_analyzer] = lambda: _FakeAnalyzer()
+    app.dependency_overrides[get_base_analyzer] = lambda: _FakeBaseAnalyzer()
     app.dependency_overrides[get_embedder] = lambda: _ConstEmbedder()
 
     transport = ASGITransport(app=app)

@@ -10,7 +10,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.application.incidents.analyze_rag import IngestIncidentWithRag
+from app.application.incidents.ingest import IngestIncident
 from app.domain.documents.ports import DocumentRepository
 from app.domain.incidents.ports import IncidentRepository
 from app.interface.http.deps import (
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 @router.post("", response_model=IncidentCreatedResponse, status_code=status.HTTP_201_CREATED)
 async def create_incident(
     body: IncidentIngestRequest,
-    ingest: IngestIncidentWithRag = Depends(get_ingest_incident),
+    ingest: IngestIncident = Depends(get_ingest_incident),
 ) -> IncidentCreatedResponse:
     """Ingest one incident context and analyze it (cache-first). Returns the incident id."""
     if not body.context.get("service"):

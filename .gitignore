@@ -53,3 +53,4 @@ scripts/
 AGENTS.md
 harness.db
 harness.db-*
+.harness/

@@ -32,6 +32,9 @@ class AnalysisDraft:
     `confidence` is the analyzer's own value — the Step 0 qualitative label (`high`/`medium`/`low`)
     or, from a future numeric analyzer, a number. The application layer normalizes it via
     `confidence_to_score` when building the persisted `Analysis`.
+
+    `evidence_chunk_ids` are the retrieved chunks the analyzer grounded on (empty for a plain
+    single-call analyzer; populated by the RAG / graph analyzers that retrieve internally).
     """
 
     severity: str
@@ -40,6 +43,7 @@ class AnalysisDraft:
     recommended_action: str
     confidence: object
     model_id: str
+    evidence_chunk_ids: tuple[uuid.UUID, ...] = ()
 
 
 @dataclass
