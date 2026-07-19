@@ -9,6 +9,25 @@ and critic agents (M3).
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.domain.documents.entities import RetrievedChunk
+
+# Appended to SYSTEM_PROMPT when retrieved knowledge is supplied (SPEC 6.2). Shared by any
+# RAG-grounded analyzer.
+RETRIEVED_KNOWLEDGE_RULES = """
+
+RETRIEVED KNOWLEDGE RULES:
+- The user message may include a "Retrieved knowledge" section with excerpts from runbooks, past
+  postmortems, architecture docs, and vendor docs.
+- Treat these as reference context, not ground truth about THIS incident. Still conclude only from the
+  incident data provided.
+- When a conclusion is supported by a retrieved excerpt, cite it by its [source_type: title] tag.
+- If retrieved knowledge conflicts with the incident data, trust the incident data and say so.
+- Never invent an excerpt or a citation that is not present in the Retrieved knowledge section."""
+
+
 # The core of Step 0: anti-hallucination rules + a strict JSON output schema.
 SYSTEM_PROMPT = """You are a senior SRE triaging a production incident. \
 You receive automatically-collected context and must analyze it quickly and accurately so on-call can act immediately. \
@@ -31,9 +50,33 @@ Return ONLY a single valid JSON object, with NO explanation or markdown, followi
 }"""
 
 
-def build_user_message(ctx: dict) -> str:
+def build_retrieval_query(ctx: dict) -> str:
+    """Build a concise retrieval query from the incident's key signals (pure).
+
+    Used to embed and search the knowledge base. A focused query (service + error signature + alert +
+    deploy) embeds better than the full context dump. The M3 triage agent will refine this later.
+    """
+    parts: list[str] = []
+    if ctx.get("service"):
+        parts.append(f"service {ctx['service']}")
+    if ctx.get("alert"):
+        parts.append(str(ctx["alert"]))
+    logs = ctx.get("sample_logs")
+    if logs:
+        parts.append(str(logs[0].get("message", "")))
+    ecs = ctx.get("ecs")
+    if ecs and ecs.get("stopped_reason"):
+        parts.append(str(ecs["stopped_reason"]))
+    dep = ctx.get("recent_deploy")
+    if dep and dep.get("version"):
+        parts.append(f"deploy {dep['version']}")
+    return " | ".join(p for p in parts if p)
+
+
+def build_user_message(ctx: dict, evidence: "list[RetrievedChunk] | None" = None) -> str:
     """Assemble the context into a COMPACT LLM input. Only prints sections that have
-    data → handles both infra and non-infra incidents, and saves tokens."""
+    data → handles both infra and non-infra incidents, and saves tokens. When `evidence` is
+    supplied, a "Retrieved knowledge" section is appended for RAG grounding + citation."""
     lines = [f"Service: {ctx.get('service')}"]
     if ctx.get("cluster"):
         lines[0] += f"  |  Cluster: {ctx.get('cluster')}"
@@ -80,5 +123,10 @@ def build_user_message(ctx: dict) -> str:
 
     if ctx.get("runbook"):
         lines.append(f"\n[RUNBOOK] {ctx['runbook']}")
+
+    if evidence:
+        lines.append("\n[RETRIEVED KNOWLEDGE] (reference only — cite as [source_type: title])")
+        for chunk in evidence:
+            lines.append(f"[{chunk.source_type}: {chunk.title}]\n{chunk.content}")
 
     return "\n".join(lines)

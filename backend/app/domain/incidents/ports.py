@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from app.domain.incidents.entities import Analysis, AnalysisDraft, Incident
 from app.domain.shared import Clock, UnitOfWork  # re-exported for existing imports
+
+if TYPE_CHECKING:
+    from app.domain.documents.entities import RetrievedChunk
 
 __all__ = [
     "Analyzer",
@@ -24,9 +27,15 @@ __all__ = [
 
 
 class Analyzer(Protocol):
-    """Produces an analysis draft for an incident context (M2: one LLM call; M3: the agent graph)."""
+    """Produces an analysis draft for an incident context (M2: one LLM call; M3: the agent graph).
 
-    async def analyze(self, context: dict) -> AnalysisDraft: ...
+    `evidence` (retrieved knowledge chunks) is optional; when supplied, the analyzer grounds its
+    reasoning and cites it. M2/no-RAG callers pass nothing and behave as before.
+    """
+
+    async def analyze(
+        self, context: dict, evidence: "list[RetrievedChunk] | None" = None
+    ) -> AnalysisDraft: ...
 
 
 class IncidentRepository(Protocol):

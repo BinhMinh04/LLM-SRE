@@ -13,8 +13,13 @@ import asyncio
 
 from langchain_aws import ChatBedrockConverse
 
+from app.domain.documents.entities import RetrievedChunk
 from app.domain.incidents.entities import AnalysisDraft
-from app.domain.incidents.prompts import SYSTEM_PROMPT, build_user_message
+from app.domain.incidents.prompts import (
+    RETRIEVED_KNOWLEDGE_RULES,
+    SYSTEM_PROMPT,
+    build_user_message,
+)
 from app.infrastructure.config import Settings
 from app.infrastructure.llm.parsing import parse_analysis
 
@@ -39,16 +44,19 @@ class BedrockAnalyzer:
             )
         return self._client
 
-    async def analyze(self, context: dict) -> AnalysisDraft:
-        raw = await asyncio.to_thread(self._invoke, context)
+    async def analyze(
+        self, context: dict, evidence: list[RetrievedChunk] | None = None
+    ) -> AnalysisDraft:
+        raw = await asyncio.to_thread(self._invoke, context, evidence)
         parsed = parse_analysis(raw)
         return AnalysisDraft(model_id=self._settings.model_id, **parsed)
 
-    def _invoke(self, context: dict) -> str:
+    def _invoke(self, context: dict, evidence: list[RetrievedChunk] | None) -> str:
+        system = SYSTEM_PROMPT + (RETRIEVED_KNOWLEDGE_RULES if evidence else "")
         response = self._get_client().invoke(
             [
-                ("system", SYSTEM_PROMPT),
-                ("human", build_user_message(context)),
+                ("system", system),
+                ("human", build_user_message(context, evidence)),
             ]
         )
         return response.content if isinstance(response.content, str) else str(response.content)

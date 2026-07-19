@@ -13,11 +13,9 @@ from app.application.documents.ingest import EmptyDocumentError, IngestDocument
 from app.domain.documents.entities import SOURCE_TYPES
 from app.domain.documents.ports import DocumentRepository
 from app.interface.http.deps import get_document_repository, get_ingest_document
-from app.interface.http.dto import (
-    DocumentCreatedResponse,
-    DocumentIngestRequest,
-    DocumentSummary,
-)
+from app.interface.http.dto import mappers
+from app.interface.http.dto.request import DocumentIngestRequest
+from app.interface.http.dto.response import DocumentCreatedResponse, DocumentSummary
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -54,4 +52,4 @@ async def list_documents(
 ) -> list[DocumentSummary]:
     """List indexed documents with their chunk counts (newest first)."""
     rows = await repo.list()
-    return [DocumentSummary.from_domain(document, count) for document, count in rows]
+    return [mappers.document_summary(document, count) for document, count in rows]

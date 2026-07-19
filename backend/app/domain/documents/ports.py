@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Protocol
 
-from app.domain.documents.entities import Document, EmbeddedChunk, RetrievedChunk
+from app.domain.documents.entities import Document, EmbeddedChunk, EvidenceRef, RetrievedChunk
 
 
 class Embedder(Protocol):
@@ -22,6 +23,10 @@ class DocumentRepository(Protocol):
 
     async def list(self) -> list[tuple[Document, int]]:
         """Return each document with its chunk count, newest first."""
+        ...
+
+    async def evidence_refs(self, chunk_ids: list[uuid.UUID]) -> list[EvidenceRef]:
+        """Resolve chunk ids to (source_type, document title) refs, preserving order."""
         ...
 
 

@@ -34,11 +34,21 @@ class EmbeddedChunk:
 
 @dataclass(frozen=True)
 class RetrievedChunk:
-    """A chunk returned by similarity search, with its cosine similarity to the query."""
+    """A chunk returned by similarity search, with its parent document title and similarity."""
 
     id: uuid.UUID
     document_id: uuid.UUID
     source_type: str
     service: str | None
+    title: str
     content: str
     similarity: float
+
+
+@dataclass(frozen=True)
+class EvidenceRef:
+    """A lightweight reference to a chunk that backed an analysis (for the API response)."""
+
+    chunk_id: uuid.UUID
+    source_type: str
+    title: str

@@ -1,9 +1,4 @@
-"""SQLAlchemy implementations of the incident domain ports.
-
-Each repository is bound to one `AsyncSession`; they map ORM rows to/from domain entities so no ORM
-type leaks past this layer. The `SqlAlchemyUnitOfWork` exposes the transaction commit the use case
-owns. Writes `flush()` + `refresh()` so returned entities carry DB-assigned ids and timestamps.
-"""
+"""SQLAlchemy implementations of the incident domain ports (repository + cache)."""
 
 from __future__ import annotations
 
@@ -15,35 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.incidents.entities import Analysis, Incident
 from app.infrastructure.db.orm import AnalysisCacheRow, AnalysisRow, IncidentRow
-
-
-def _incident_to_domain(row: IncidentRow) -> Incident:
-    return Incident(
-        service=row.service,
-        source=row.source,
-        fingerprint=row.fingerprint,
-        context=row.context,
-        status=row.status,
-        id=row.id,
-        created_at=row.created_at,
-        updated_at=row.updated_at,
-    )
-
-
-def _analysis_to_domain(row: AnalysisRow) -> Analysis:
-    return Analysis(
-        incident_id=row.incident_id,
-        severity=row.severity,
-        summary=row.summary,
-        root_cause=row.root_cause,
-        recommended_action=row.recommended_action,
-        confidence=float(row.confidence) if row.confidence is not None else None,
-        cache_state=row.cache_state,
-        model_id=row.model_id,
-        evidence_chunk_ids=list(row.evidence_chunk_ids or []),
-        id=row.id,
-        created_at=row.created_at,
-    )
+from app.infrastructure.db.repositories.mappers import analysis_to_domain, incident_to_domain
 
 
 class SqlAlchemyIncidentRepository:
@@ -61,11 +28,11 @@ class SqlAlchemyIncidentRepository:
         self._s.add(row)
         await self._s.flush()
         await self._s.refresh(row)
-        return _incident_to_domain(row)
+        return incident_to_domain(row)
 
     async def get(self, incident_id: uuid.UUID) -> Incident | None:
         row = await self._s.get(IncidentRow, incident_id)
-        return _incident_to_domain(row) if row is not None else None
+        return incident_to_domain(row) if row is not None else None
 
     async def list(
         self,
@@ -91,7 +58,7 @@ class SqlAlchemyIncidentRepository:
 
         rows = (await self._s.execute(stmt)).all()
         return [
-            (_incident_to_domain(inc), _analysis_to_domain(an) if an is not None else None)
+            (incident_to_domain(inc), analysis_to_domain(an) if an is not None else None)
             for inc, an in rows
         ]
 
@@ -110,7 +77,7 @@ class SqlAlchemyIncidentRepository:
         self._s.add(row)
         await self._s.flush()
         await self._s.refresh(row)
-        return _analysis_to_domain(row)
+        return analysis_to_domain(row)
 
     async def latest_analysis(self, incident_id: uuid.UUID) -> Analysis | None:
         row = await self._s.scalar(
@@ -119,7 +86,7 @@ class SqlAlchemyIncidentRepository:
             .order_by(AnalysisRow.created_at.desc())
             .limit(1)
         )
-        return _analysis_to_domain(row) if row is not None else None
+        return analysis_to_domain(row) if row is not None else None
 
     async def set_status(self, incident_id: uuid.UUID, status: str) -> None:
         row = await self._s.get(IncidentRow, incident_id)
@@ -141,7 +108,7 @@ class SqlAlchemyAnalysisCacheRepository:
         if cache is None:
             return None
         row = await self._s.get(AnalysisRow, cache.analysis_id)
-        return _analysis_to_domain(row) if row is not None else None
+        return analysis_to_domain(row) if row is not None else None
 
     async def put(self, fingerprint: str, analysis_id: uuid.UUID, expires_at: datetime) -> None:
         existing = await self._s.get(AnalysisCacheRow, fingerprint)
@@ -154,11 +121,3 @@ class SqlAlchemyAnalysisCacheRepository:
         else:
             existing.analysis_id = analysis_id
             existing.expires_at = expires_at
-
-
-class SqlAlchemyUnitOfWork:
-    def __init__(self, session: AsyncSession) -> None:
-        self._s = session
-
-    async def commit(self) -> None:
-        await self._s.commit()
