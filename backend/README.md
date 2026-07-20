@@ -12,10 +12,10 @@ uv sync                                   # install from the frozen lockfile
 uv run uvicorn app.main:app --reload      # run the API on :8000
 ```
 
-Or run the whole stack (Postgres + pgvector + backend) with Docker Compose:
+Or run the whole stack (Postgres + pgvector + backend + frontend) with Docker Compose, from the repo root:
 
 ```bash
-docker compose -f ../infra/docker-compose.yml up
+docker compose -f iac/docker-compose.yml up --build
 ```
 
 Health check: `GET /healthz`.

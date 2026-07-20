@@ -36,7 +36,7 @@ iim/
 │           ├── infra_oom.json         # infra case: OOM after a deploy
 │           └── apicost_overage.json   # third-party API cost case
 ├── frontend/              # React (Vite) + shadcn/ui board
-└── infra/                 # docker-compose, config, alarm → service mapping
+└── iac/                   # docker-compose (full stack), + Terraform later
 ```
 
 ## Run the AI brain directly (Step 0 — dev harness)

@@ -20,8 +20,9 @@ imports it as a library and invokes it through the LangGraph multi-agent graph w
 ingested (`POST /api/incidents`). The app is the entry point:
 
 ```bash
-# Target full stack — backend/frontend NOT implemented yet (see .claude/specs/SPEC.md):
-docker compose -f infra/docker-compose.yml up          # db (pgvector) + backend (FastAPI) + frontend
+# Full stack — db (pgvector) + backend (FastAPI) + frontend (nginx static build).
+# Run from the repo root; no need to cd into backend/ or frontend/ first:
+docker compose -f iac/docker-compose.yml up --build
 # backend only, for development:
 cd backend && uv sync && uv run uvicorn app.main:app --reload
 ```
@@ -54,14 +55,19 @@ lean (no SSE streaming, no auth, no automated tests). Full design and task break
 `frontend/README.md`.
 
 ```bash
-# 1) backend + db (RAG backend is on main under backend/):
-docker compose -f infra/docker-compose.yml up          # db (pgvector) + backend on :8000
-# 2) frontend:
-cd frontend && npm install && npm run dev              # Vite on :5173, proxies /api -> :8000
+# Option A — full stack in Docker, from the repo root (no cd needed):
+docker compose -f iac/docker-compose.yml up --build     # db + backend :8000 + frontend :5173
+
+# Option B — frontend with hot reload, backend still via Docker:
+docker compose -f iac/docker-compose.yml up db backend  # db (pgvector) + backend on :8000
+cd frontend && npm install && npm run dev               # Vite on :5173, proxies /api -> :8000
 ```
 
-Open **http://localhost:5173**. The Vite dev server proxies `/api` and `/healthz` to `:8000`, so the
-app talks to a relative base and needs no CORS config. Structure:
+Open **http://localhost:5173**. In dev mode, Vite proxies `/api` and `/healthz` to `:8000`
+(`vite.config.ts`); the Docker image serves the production build via nginx, which proxies the same two
+paths to the `backend` service (`frontend/nginx.conf`) — either way the app talks to a relative base and
+needs no CORS config. The Docker image has no HMR, so keep using `npm run dev` (Option B) while actively
+changing frontend code; `up --build` is for full-stack smoke-testing or demos. Structure:
 
 - **`src/lib/`** — `api.ts` (thin fetch wrapper; throws `ApiError` carrying the backend `detail`, plus
   `errText()` to normalize any thrown value — network `TypeError`, non-JSON proxy error page, or
@@ -82,6 +88,8 @@ app talks to a relative base and needs no CORS config. Structure:
   (list + detail two-pane), `KnowledgeBase` (document cards). All three take the shared `useDashboard`
   data plus the top bar's search query and render loading/empty/error states explicitly.
 - **`src/features/`** — the incident and document workflows (lists, detail, ingest modals).
+- **`Dockerfile` / `nginx.conf`** — multi-stage build (Node build → nginx serve) for the Docker Compose
+  path above; not used by `npm run dev`.
 
 **Design language**: a light SaaS dashboard with a **permanently-dark navigation rail** (the rail tokens
 in `src/index.css` are never theme-flipped — it stays dark in both light and dark mode). Indigo accent,
@@ -169,6 +177,8 @@ current state:
 
 - **Step 4**: replace the in-memory `_CACHE` with **DynamoDB + TTL**.
 - **Serverless / AWS CDK** deployment (`.serverless/`, `cdk.out/` in `.gitignore`).
+- `infra/` was renamed to **`iac/`** — it will hold Terraform once infrastructure-as-code work starts
+  (not written yet; today it only holds `docker-compose.yml` for local full-stack runs).
 
 The **React frontend** now exists as `frontend/` (a local test UI — see the Frontend section above),
 superseding the originally-planned `board/` location. Streaming (SSE), auth, and a polished production

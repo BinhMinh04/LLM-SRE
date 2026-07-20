@@ -184,7 +184,7 @@ iim/
         login.tsx          # /login
       components/          # shadcn/ui-based components
       lib/                 # api client, sse hook
-  infra/
+  iac/
     docker-compose.yml
     .env.example
 ```
@@ -547,7 +547,7 @@ https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items
 ## 13. Deployment (Docker Compose)
 
 ```yaml
-# infra/docker-compose.yml (sketch)
+# iac/docker-compose.yml (sketch)
 services:
   db:
     image: pgvector/pgvector:pg16
