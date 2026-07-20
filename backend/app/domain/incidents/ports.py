@@ -23,6 +23,8 @@ __all__ = [
     "AnalysisCacheRepository",
     "Clock",
     "UnitOfWork",
+    "ProgressReporter",
+    "NullReporter",
 ]
 
 
@@ -68,3 +70,22 @@ class AnalysisCacheRepository(Protocol):
     async def get_valid(self, fingerprint: str, now: datetime) -> Analysis | None: ...
 
     async def put(self, fingerprint: str, analysis_id: uuid.UUID, expires_at: datetime) -> None: ...
+
+
+class ProgressReporter(Protocol):
+    """Notified of analysis progress (SSE streaming design, decision 2026-07-20).
+
+    Analyzers call `stage()` as they enter each step, so a caller (the ingest use case, an SSE
+    endpoint) can surface live progress. Purely observational — never raises, never influences
+    the analysis itself.
+    """
+
+    async def stage(self, name: str, detail: str | None = None) -> None: ...
+
+
+class NullReporter:
+    """Default no-op ProgressReporter — existing callers (tests, the dev/debug harness) that
+    don't pass one keep working unchanged."""
+
+    async def stage(self, name: str, detail: str | None = None) -> None:
+        return None
