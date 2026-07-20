@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useTheme } from './lib/theme'
+import { useDashboard } from './lib/useDashboard'
 import { VIEW_META, type View } from './lib/nav'
+import { severityMeta } from './lib/severity'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
+import { PageHeader } from './components/layout/PageHeader'
 import { Button } from './components/ui/Button'
 import { Overview } from './pages/Overview'
 import { Incidents } from './pages/Incidents'
@@ -16,8 +19,13 @@ export default function App() {
   const [view, setView] = useState<View>('overview')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
+  const [query, setQuery] = useState('')
   const [showIncident, setShowIncident] = useState(false)
   const [showDoc, setShowDoc] = useState(false)
+
+  const data = useDashboard(dataVersion)
+  const refresh = () => setDataVersion((v) => v + 1)
+  const alertCount = data.incidents.filter((i) => severityMeta(i.severity).urgent).length
 
   const openIncident = (id: string) => {
     setSelectedId(id)
@@ -25,14 +33,14 @@ export default function App() {
   }
 
   const meta = VIEW_META[view]
-  const actions =
+  const action =
     view === 'knowledge' ? (
       <Button onClick={() => setShowDoc(true)}>
-        <Plus size={15} /> New document
+        <Plus size={16} /> New document
       </Button>
     ) : (
       <Button onClick={() => setShowIncident(true)}>
-        <Plus size={15} /> New incident
+        <Plus size={16} /> New incident
       </Button>
     )
 
@@ -41,18 +49,38 @@ export default function App() {
       <Sidebar view={view} onNavigate={setView} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
-          title={meta.title}
-          subtitle={meta.subtitle}
-          actions={actions}
+          query={query}
+          onQueryChange={setQuery}
+          alertCount={alertCount}
+          onBellClick={() => setView('incidents')}
           theme={theme}
           onToggleTheme={toggle}
         />
-        <main className="flex-1 overflow-hidden bg-plane">
-          {view === 'overview' && <Overview refreshKey={dataVersion} onOpenIncident={openIncident} />}
-          {view === 'incidents' && (
-            <Incidents selectedId={selectedId} onSelect={setSelectedId} refreshKey={dataVersion} />
-          )}
-          {view === 'knowledge' && <KnowledgeBase refreshKey={dataVersion} />}
+        <main className="plane-aurora flex min-h-0 flex-1 flex-col">
+          <PageHeader title={meta.title} subtitle={meta.subtitle} action={action} />
+          <div className="min-h-0 flex-1">
+            {view === 'overview' && (
+              <Overview
+                data={data}
+                query={query}
+                onOpenIncident={openIncident}
+                onViewAll={() => setView('incidents')}
+                onRetry={refresh}
+              />
+            )}
+            {view === 'incidents' && (
+              <Incidents
+                data={data}
+                query={query}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onRetry={refresh}
+              />
+            )}
+            {view === 'knowledge' && (
+              <KnowledgeBase data={data} query={query} onRetry={refresh} onNew={() => setShowDoc(true)} />
+            )}
+          </div>
         </main>
       </div>
 
@@ -62,14 +90,10 @@ export default function App() {
         onCreated={(id) => {
           setSelectedId(id)
           setView('incidents')
-          setDataVersion((v) => v + 1)
+          refresh()
         }}
       />
-      <NewDocumentModal
-        open={showDoc}
-        onClose={() => setShowDoc(false)}
-        onCreated={() => setDataVersion((v) => v + 1)}
-      />
+      <NewDocumentModal open={showDoc} onClose={() => setShowDoc(false)} onCreated={refresh} />
     </div>
   )
 }

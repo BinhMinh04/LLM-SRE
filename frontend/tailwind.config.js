@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Theme tokens (values swap via CSS vars on [data-theme]).
+        // Content-surface tokens (values swap via CSS vars on [data-theme]).
         plane: 'var(--plane)',
         surface: 'var(--surface)',
         'surface-2': 'var(--surface-2)',
@@ -14,7 +14,16 @@ export default {
         hair: 'var(--hair)',
         grid: 'var(--grid)',
         accent: 'var(--accent)',
+        'accent-strong': 'var(--accent-strong)',
         'accent-weak': 'var(--accent-weak)',
+        info: 'var(--info)',
+        purple: 'var(--purple)',
+        // Navigation rail — constant (dark in both themes).
+        rail: 'var(--rail)',
+        'rail-panel': 'var(--rail-panel)',
+        'rail-text': 'var(--rail-text)',
+        'rail-dim': 'var(--rail-dim)',
+        'rail-hair': 'var(--rail-hair)',
         // Status palette (fixed — never themed).
         'sev-critical': 'var(--sev-critical)',
         'sev-high': 'var(--sev-high)',
@@ -23,11 +32,13 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       boxShadow: {
-        card: '0 1px 2px rgba(11,11,11,0.04), 0 1px 3px rgba(11,11,11,0.06)',
+        card: '0 1px 2px rgba(2,6,23,0.04), 0 6px 16px rgba(2,6,23,0.05)',
+        'card-hover': '0 2px 6px rgba(2,6,23,0.06), 0 16px 32px rgba(2,6,23,0.10)',
+        rail: '0 8px 24px rgba(2,6,23,0.4)',
       },
     },
   },

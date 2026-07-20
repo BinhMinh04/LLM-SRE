@@ -1,21 +1,34 @@
+import type { DashboardData } from '../lib/useDashboard'
 import { IncidentList } from '../features/incidents/IncidentList'
 import { IncidentDetail } from '../features/incidents/IncidentDetail'
 
 export function Incidents({
+  data,
+  query,
   selectedId,
   onSelect,
-  refreshKey,
+  onRetry,
 }: {
+  data: DashboardData
+  query: string
   selectedId: string | null
   onSelect: (id: string) => void
-  refreshKey: number
+  onRetry: () => void
 }) {
   return (
-    <div className="grid h-full grid-cols-[300px_1fr] overflow-hidden">
-      <aside className="overflow-y-auto border-r border-hair bg-surface">
-        <IncidentList selectedId={selectedId} onSelect={onSelect} refreshKey={refreshKey} />
+    <div className="grid h-full grid-cols-[minmax(260px,340px)_1fr] overflow-hidden">
+      <aside className="min-h-0 overflow-y-auto border-r border-hair bg-surface/50">
+        <IncidentList
+          rows={data.incidents}
+          loading={data.loading}
+          error={data.error}
+          query={query}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          onRetry={onRetry}
+        />
       </aside>
-      <section className="overflow-y-auto bg-plane">
+      <section className="min-h-0 overflow-y-auto">
         <IncidentDetail incidentId={selectedId} />
       </section>
     </div>

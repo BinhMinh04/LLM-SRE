@@ -1,132 +1,206 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, BookOpen, Layers, ShieldAlert } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
-import type { DocumentSummary, IncidentSummary } from '../lib/types'
-import { severityMeta, SEVERITY_ORDER } from '../lib/severity'
+import { AlertTriangle, BookOpen, ChevronRight, Inbox, ShieldAlert, Sparkles } from 'lucide-react'
+import type { DashboardData } from '../lib/useDashboard'
+import type { IncidentSummary } from '../lib/types'
+import { severityMeta } from '../lib/severity'
+import { incidentRef, timeAgo } from '../lib/format'
 import { StatTile } from '../components/ui/StatTile'
-import { Card } from '../components/ui/Card'
+import { Card, CardHeader } from '../components/ui/Card'
 import { SeverityBadge } from '../components/ui/SeverityBadge'
+import { StatusBadge } from '../components/ui/StatusBadge'
+import { Skeleton } from '../components/ui/Skeleton'
+import { EmptyState } from '../components/ui/EmptyState'
+import { ErrorState } from '../components/ui/ErrorState'
+import { ActivityFeed } from '../components/ActivityFeed'
 
 export function Overview({
-  refreshKey,
+  data,
+  query,
   onOpenIncident,
+  onViewAll,
+  onRetry,
 }: {
-  refreshKey: number
+  data: DashboardData
+  query: string
   onOpenIncident: (id: string) => void
+  onViewAll: () => void
+  onRetry: () => void
 }) {
-  const [incidents, setIncidents] = useState<IncidentSummary[]>([])
-  const [docs, setDocs] = useState<DocumentSummary[]>([])
-  const [err, setErr] = useState<string | null>(null)
+  const { incidents, docs, loading, error } = data
 
-  useEffect(() => {
-    Promise.all([api.get<IncidentSummary[]>('/api/incidents'), api.get<DocumentSummary[]>('/api/documents')])
-      .then(([i, d]) => {
-        setIncidents(i)
-        setDocs(d)
-        setErr(null)
-      })
-      .catch((e: ApiError) => setErr(e.detail))
-  }, [refreshKey])
+  const q = query.trim().toLowerCase()
+  const matches = (i: IncidentSummary) =>
+    !q || [i.service, i.summary, i.status, i.fingerprint].some((v) => (v ?? '').toLowerCase().includes(q))
+  const recent = incidents.filter(matches).slice(0, 6)
 
-  const urgent = incidents.filter((r) => severityMeta(r.severity).urgent).length
-  const chunks = docs.reduce((s, d) => s + d.chunk_count, 0)
-  const counts = SEVERITY_ORDER.map((key) => ({
-    key,
-    meta: severityMeta(key),
-    n: incidents.filter((r) => severityMeta(r.severity).key === key).length,
-  }))
   const total = incidents.length
-  const recent = incidents.slice(0, 6)
+  const urgent = incidents.filter((i) => severityMeta(i.severity).urgent).length
+  const analyzed = incidents.filter((i) => severityMeta(i.severity).key !== 'unknown').length
+  const chunks = docs.reduce((s, d) => s + d.chunk_count, 0)
+  const coverage = total ? Math.round((analyzed / total) * 100) : 0
 
-  if (err) return <p className="p-6 text-sm text-sev-critical">Failed to load: {err}</p>
+  if (error) {
+    return (
+      <div className="h-full overflow-y-auto px-4 pb-10 md:px-8">
+        <ErrorState detail={error} onRetry={onRetry} className="animate-in mt-2" />
+      </div>
+    )
+  }
 
   return (
-    <div className="animate-in h-full space-y-5 overflow-y-auto p-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Incidents" value={total} icon={AlertTriangle} sublabel="Total ingested" />
-        <StatTile
-          label="Needs attention"
-          value={urgent}
-          icon={ShieldAlert}
-          accent="var(--sev-critical)"
-          sublabel="Critical + High"
-        />
-        <StatTile
-          label="Knowledge docs"
-          value={docs.length}
-          icon={BookOpen}
-          accent="var(--sev-low)"
-          sublabel="Indexed for RAG"
-        />
-        <StatTile
-          label="Evidence chunks"
-          value={chunks}
-          icon={Layers}
-          accent="#7c5cff"
-          sublabel="Retrievable"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <Card className="p-5">
-          <h3 className="font-display text-sm font-semibold tracking-tight text-ink">Severity breakdown</h3>
-          {total === 0 ? (
-            <p className="mt-3 text-sm text-muted">No incidents yet.</p>
+    <div className="h-full overflow-y-auto px-4 pb-10 md:px-8">
+      <div className="space-y-6">
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {loading ? (
+            [0, 1, 2, 3].map((k) => <Skeleton key={k} className="h-[132px] rounded-2xl" />)
           ) : (
             <>
-              <div className="mt-4 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
-                {counts
-                  .filter((c) => c.n > 0)
-                  .map((c) => (
-                    <div
-                      key={c.key}
-                      style={{ background: c.meta.color, flexGrow: c.n }}
-                      title={`${c.meta.label}: ${c.n}`}
-                    />
-                  ))}
+              <div className="animate-in" style={{ animationDelay: '0ms' }}>
+                <StatTile
+                  label="Active incidents"
+                  value={total}
+                  icon={AlertTriangle}
+                  accent="var(--sev-critical)"
+                  badge={
+                    urgent > 0
+                      ? { text: 'Action required', tone: 'danger' }
+                      : { text: 'All clear', tone: 'success' }
+                  }
+                />
               </div>
-              <ul className="mt-4 space-y-2">
-                {counts.map((c) => (
-                  <li key={c.key} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2 text-ink-2">
-                      <span className="h-2 w-2 rounded-full" style={{ background: c.meta.color }} />
-                      {c.meta.label}
-                    </span>
-                    <span className="font-medium tabular-nums text-ink">{c.n}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="animate-in" style={{ animationDelay: '60ms' }}>
+                <StatTile
+                  label="Needs attention"
+                  value={urgent}
+                  icon={ShieldAlert}
+                  accent="var(--sev-high)"
+                  badge={urgent > 0 ? { text: 'Critical + High', tone: 'warning' } : undefined}
+                />
+              </div>
+              <div className="animate-in" style={{ animationDelay: '120ms' }}>
+                <StatTile
+                  label="Knowledge docs"
+                  value={docs.length}
+                  icon={BookOpen}
+                  accent="var(--info)"
+                  badge={{ text: `${chunks} chunk${chunks === 1 ? '' : 's'}`, tone: 'info' }}
+                />
+              </div>
+              <div className="animate-in" style={{ animationDelay: '180ms' }}>
+                <StatTile
+                  label="AI analyses"
+                  value={analyzed}
+                  icon={Sparkles}
+                  accent="var(--purple)"
+                  badge={{ text: total ? `${coverage}% coverage` : 'Ready', tone: 'purple' }}
+                />
+              </div>
             </>
           )}
-        </Card>
+        </div>
 
-        <Card className="p-5">
-          <h3 className="mb-1 font-display text-sm font-semibold tracking-tight text-ink">Recent incidents</h3>
-          {recent.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">No incidents yet — create one from the Incidents tab.</p>
-          ) : (
-            <ul className="divide-y divide-hair">
-              {recent.map((i) => (
-                <li key={i.id}>
+        {/* Recent incidents + activity */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr]">
+          <Card className="animate-in p-5 md:p-6">
+            <CardHeader
+              title="Recent incidents"
+              action={
+                total > 0 ? (
                   <button
-                    onClick={() => onOpenIncident(i.id)}
-                    className="flex w-full items-center justify-between py-2.5 text-left hover:opacity-80"
+                    onClick={onViewAll}
+                    className="text-sm font-semibold text-accent transition hover:opacity-80"
                   >
-                    <div className="min-w-0">
-                      <div className="truncate font-display text-sm font-semibold tracking-tight text-ink">
-                        {i.service}
-                      </div>
-                      <div className="truncate text-xs text-muted">
-                        {i.summary || i.status} · {new Date(i.created_at).toLocaleString()}
+                    View all
+                  </button>
+                ) : undefined
+              }
+            />
+            <div className="mt-4">
+              {loading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2, 3].map((k) => (
+                    <Skeleton key={k} className="h-12" />
+                  ))}
+                </div>
+              ) : recent.length === 0 ? (
+                <EmptyState
+                  icon={Inbox}
+                  title={q ? 'No matching incidents' : 'No incidents yet'}
+                  hint={
+                    q
+                      ? 'Try a different search term.'
+                      : 'Ingest one with New incident to see AI triage land here.'
+                  }
+                  className="border-0 py-10"
+                />
+              ) : (
+                <ul className="-mx-2 space-y-0.5">
+                  {recent.map((i) => {
+                    const m = severityMeta(i.severity)
+                    return (
+                      <li key={i.id}>
+                        <button
+                          onClick={() => onOpenIncident(i.id)}
+                          className="group flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition hover:bg-surface-2"
+                        >
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ background: m.color }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold text-ink">
+                              {i.summary || i.service}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+                              <span className="font-mono">{incidentRef(i.id)}</span>
+                              <span aria-hidden>·</span>
+                              <span className="truncate">{i.service}</span>
+                              <span aria-hidden className="hidden sm:inline">
+                                ·
+                              </span>
+                              <span className="hidden sm:inline">{timeAgo(i.created_at)}</span>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <SeverityBadge severity={i.severity} size="xs" />
+                            <span className="hidden md:inline-flex">
+                              <StatusBadge status={i.status} />
+                            </span>
+                            <ChevronRight
+                              size={16}
+                              className="text-muted transition group-hover:translate-x-0.5"
+                            />
+                          </div>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          </Card>
+
+          <Card className="animate-in p-5 md:p-6">
+            <CardHeader title="Activity" />
+            <div className="mt-4">
+              {loading ? (
+                <div className="space-y-4">
+                  {[0, 1, 2, 3].map((k) => (
+                    <div key={k} className="flex gap-3">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-3 w-2/3" />
+                        <Skeleton className="h-3 w-1/3" />
                       </div>
                     </div>
-                    <SeverityBadge severity={i.severity} size="xs" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+                  ))}
+                </div>
+              ) : (
+                <ActivityFeed incidents={incidents} docs={docs} />
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   )

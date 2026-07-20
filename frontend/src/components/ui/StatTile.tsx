@@ -1,37 +1,39 @@
 import type { LucideIcon } from 'lucide-react'
+import { Badge, type BadgeTone } from './Badge'
 
 /**
- * A bare stat tile (hero number) — no plot, so no hover layer (dataviz rule).
- * The value uses proportional figures; `accent` optionally tints the icon chip.
+ * A dashboard stat card: a tinted icon chip and an optional status pill on the
+ * top row, then the hero number and its label. No plot, so no hover data layer
+ * (dataviz rule) — just a gentle lift on hover.
  */
 export function StatTile({
   label,
   value,
-  sublabel,
   icon: Icon,
   accent = 'var(--accent)',
+  badge,
 }: {
   label: string
   value: string | number
-  sublabel?: string
   icon: LucideIcon
   accent?: string
+  badge?: { text: string; tone?: BadgeTone }
 }) {
   return (
-    <div className="rounded-xl border border-hair bg-surface p-4 shadow-card">
+    <div className="group rounded-2xl border border-hair bg-surface p-5 shadow-card transition duration-300 hover:-translate-y-0.5 hover:shadow-card-hover">
       <div className="flex items-start justify-between">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted">
-          {label}
-        </span>
         <span
-          className="flex h-8 w-8 items-center justify-center rounded-lg"
-          style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}
+          className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105"
+          style={{ background: `color-mix(in srgb, ${accent} 15%, transparent)`, color: accent }}
         >
-          <Icon size={16} />
+          <Icon size={20} strokeWidth={2.2} />
         </span>
+        {badge && <Badge tone={badge.tone ?? 'neutral'}>{badge.text}</Badge>}
       </div>
-      <div className="mt-2 font-display text-4xl font-semibold tabular-nums text-ink">{value}</div>
-      {sublabel && <div className="mt-0.5 text-xs text-ink-2">{sublabel}</div>}
+      <div className="mt-4 font-display text-[2.5rem] font-extrabold leading-none tracking-tight tabular-nums text-ink">
+        {value}
+      </div>
+      <div className="mt-1.5 text-sm font-medium text-ink-2">{label}</div>
     </div>
   )
 }
