@@ -12,6 +12,16 @@ from __future__ import annotations
 
 import asyncio
 
+_STAGE_LABELS = {
+    "triage": "Triaging incident",
+    "retrieve": "Retrieving evidence",
+    "diagnose": "Diagnosing root cause",
+    "critic": "Critiquing hypothesis",
+    "synthesize": "Synthesizing analysis",
+    "analyze": "Analyzing incident",
+    "cached": "Using cached analysis",
+}
+
 
 class IncidentEventBus:
     def __init__(self) -> None:
@@ -36,3 +46,18 @@ class IncidentEventBus:
     def close(self, incident_id: str) -> None:
         """Drop the channel's registration. Safe to call even if never opened."""
         self._queues.pop(incident_id, None)
+
+
+class BusProgressReporter:
+    """`ProgressReporter` adapter that publishes each stage as an SSE-ready event dict."""
+
+    def __init__(self, bus: IncidentEventBus, incident_id: str) -> None:
+        self._bus = bus
+        self._incident_id = incident_id
+
+    async def stage(self, name: str, detail: str | None = None) -> None:
+        label = _STAGE_LABELS.get(name, name.replace("_", " ").capitalize())
+        await self._bus.publish(
+            self._incident_id,
+            {"event": "stage", "data": {"stage": name, "label": label, "detail": detail}},
+        )

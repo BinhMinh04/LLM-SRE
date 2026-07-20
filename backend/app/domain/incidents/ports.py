@@ -33,10 +33,17 @@ class Analyzer(Protocol):
 
     `evidence` (retrieved knowledge chunks) is optional; when supplied, the analyzer grounds its
     reasoning and cites it. M2/no-RAG callers pass nothing and behave as before.
+
+    `reporter` is optional; multi-step analyzers (RagAnalyzer, GraphAnalyzer) report their stages
+    through it for live progress (SSE streaming design, decision 2026-07-20). Single-call base
+    analyzers (Bedrock/DeepSeek) have no internal stages to report and ignore it.
     """
 
     async def analyze(
-        self, context: dict, evidence: "list[RetrievedChunk] | None" = None
+        self,
+        context: dict,
+        evidence: "list[RetrievedChunk] | None" = None,
+        reporter: "ProgressReporter | None" = None,
     ) -> AnalysisDraft: ...
 
 

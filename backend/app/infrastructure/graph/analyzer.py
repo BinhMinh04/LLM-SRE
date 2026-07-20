@@ -26,6 +26,7 @@ from app.domain.incidents.graph_prompts import (
     SYNTHESIZE_SYSTEM,
     TRIAGE_SYSTEM,
 )
+from app.domain.incidents.ports import NullReporter, ProgressReporter
 from app.domain.incidents.prompts import build_retrieval_query, build_user_message
 from app.domain.llm import ChatModel
 from app.infrastructure.graph.state import GraphState
@@ -82,6 +83,7 @@ class GraphAnalyzer:
     # --- nodes ---------------------------------------------------------------
 
     async def _triage(self, state: GraphState) -> dict:
+        await state["reporter"].stage("triage")
         ctx = state["context"]
         raw = await self._chat.complete(
             TRIAGE_SYSTEM, build_user_message(ctx), tier="fast"
@@ -94,31 +96,37 @@ class GraphAnalyzer:
     async def _retrieve(self, state: GraphState) -> dict:
         query = state["query"] or build_retrieval_query(state["context"])
         if not query:
-            return {"evidence": state["evidence"]}
-        query_embedding = await self._embedder.embed_query(query)
-        seen = {chunk.id for chunk in state["evidence"]}
-        merged: list[RetrievedChunk] = list(state["evidence"])
-        service = state["context"].get("service")
-        for source_type in state["source_types"]:
-            hits = await self._retriever.search(
-                query_embedding=query_embedding,
-                service=service,
-                source_type=source_type,
-                top_k=self._top_k,
-                min_similarity=self._min_similarity,
-            )
-            for chunk in hits:
-                if chunk.id not in seen:
-                    seen.add(chunk.id)
-                    merged.append(chunk)
+            merged = state["evidence"]
+        else:
+            query_embedding = await self._embedder.embed_query(query)
+            seen = {chunk.id for chunk in state["evidence"]}
+            merged = list(state["evidence"])
+            service = state["context"].get("service")
+            for source_type in state["source_types"]:
+                hits = await self._retriever.search(
+                    query_embedding=query_embedding,
+                    service=service,
+                    source_type=source_type,
+                    top_k=self._top_k,
+                    min_similarity=self._min_similarity,
+                )
+                for chunk in hits:
+                    if chunk.id not in seen:
+                        seen.add(chunk.id)
+                        merged.append(chunk)
+        await state["reporter"].stage(
+            "retrieve", f"{len(merged)} evidence chunk{'' if len(merged) == 1 else 's'}"
+        )
         return {"evidence": merged}
 
     async def _diagnose(self, state: GraphState) -> dict:
+        await state["reporter"].stage("diagnose")
         user = build_user_message(state["context"], state["evidence"])
         hypothesis = await self._chat.complete(DIAGNOSIS_SYSTEM, user, tier="main")
         return {"hypothesis": hypothesis}
 
     async def _critic(self, state: GraphState) -> dict:
+        await state["reporter"].stage("critic")
         user = (
             build_user_message(state["context"], state["evidence"])
             + f"\n\n[PROPOSED ROOT CAUSE]\n{state['hypothesis']}"
@@ -127,6 +135,7 @@ class GraphAnalyzer:
         return {"critique": critique, "round": state["round"] + 1}
 
     async def _synthesize(self, state: GraphState) -> dict:
+        await state["reporter"].stage("synthesize")
         note = state.get("critique", {}).get("note", "")
         user = (
             build_user_message(state["context"], state["evidence"])
@@ -145,7 +154,10 @@ class GraphAnalyzer:
     # --- Analyzer port -------------------------------------------------------
 
     async def analyze(
-        self, context: dict, evidence: list[RetrievedChunk] | None = None
+        self,
+        context: dict,
+        evidence: list[RetrievedChunk] | None = None,
+        reporter: ProgressReporter | None = None,
     ) -> AnalysisDraft:
         initial: GraphState = {
             "context": context,
@@ -156,6 +168,7 @@ class GraphAnalyzer:
             "critique": {},
             "round": 0,
             "draft": {},
+            "reporter": reporter or NullReporter(),
         }
         final = await self._graph.ainvoke(initial)
         fields = final["draft"]

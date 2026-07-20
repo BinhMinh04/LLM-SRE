@@ -38,7 +38,7 @@ class _CountingAnalyzer:
     def __init__(self):
         self.calls = 0
 
-    async def analyze(self, context: dict) -> AnalysisDraft:
+    async def analyze(self, context: dict, reporter=None) -> AnalysisDraft:
         self.calls += 1
         return AnalysisDraft(
             severity="critical",

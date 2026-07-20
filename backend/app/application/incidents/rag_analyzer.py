@@ -15,7 +15,7 @@ from dataclasses import dataclass, replace
 from app.domain.documents.entities import RetrievedChunk
 from app.domain.documents.ports import Embedder, Retriever
 from app.domain.incidents.entities import AnalysisDraft
-from app.domain.incidents.ports import Analyzer
+from app.domain.incidents.ports import Analyzer, NullReporter, ProgressReporter
 from app.domain.incidents.prompts import build_retrieval_query
 
 
@@ -28,9 +28,15 @@ class RagAnalyzer:
     min_similarity: float = 0.0
 
     async def analyze(
-        self, context: dict, evidence: list[RetrievedChunk] | None = None
+        self,
+        context: dict,
+        evidence: list[RetrievedChunk] | None = None,
+        reporter: ProgressReporter | None = None,
     ) -> AnalysisDraft:
+        reporter = reporter or NullReporter()
         chunks = await self._retrieve(context)
+        await reporter.stage("retrieve", f"{len(chunks)} evidence chunk{'' if len(chunks) == 1 else 's'}")
+        await reporter.stage("analyze")
         draft = await self.base.analyze(context, evidence=chunks)
         return replace(draft, evidence_chunk_ids=tuple(chunk.id for chunk in chunks))
 

@@ -70,9 +70,11 @@ class FakeCacheRepo:
 class CountingAnalyzer:
     def __init__(self):
         self.calls = 0
+        self.last_reporter = None
 
-    async def analyze(self, context):
+    async def analyze(self, context, reporter=None):
         self.calls += 1
+        self.last_reporter = reporter
         return AnalysisDraft(
             severity="critical",
             summary="GCM OOM after deploy",
@@ -122,8 +124,55 @@ async def test_miss_persists_and_normalizes_confidence():
     assert analysis.confidence == pytest.approx(0.9)  # "high" -> score
     assert incident.status == "analyzed"
     assert analysis.incident_id == incident.id
-    assert uow.commits == 1
+    assert uow.commits == 2  # one for create_incident, one for analyze_incident
     assert len(repo.incidents) == 1
+
+
+async def test_create_incident_persists_as_analyzing_without_running_the_analyzer():
+    usecase, repo, _, analyzer, _, uow = _make()
+    incident = await usecase.create_incident(source="manual", context=dict(_CTX))
+    assert incident.status == "analyzing"
+    assert incident.id in repo.incidents
+    assert analyzer.calls == 0
+    assert uow.commits == 1
+
+
+async def test_analyze_incident_runs_analyzer_and_marks_analyzed():
+    usecase, _, _, analyzer, _, uow = _make()
+    incident = await usecase.create_incident(source="manual", context=dict(_CTX))
+    analysis = await usecase.analyze_incident(incident)
+    assert analyzer.calls == 1
+    assert analysis.cache_state == "MISS"
+    assert incident.status == "analyzed"
+    assert uow.commits == 2
+
+
+async def test_analyze_incident_passes_the_reporter_to_the_analyzer():
+    usecase, _, _, analyzer, _, _ = _make()
+    incident = await usecase.create_incident(source="manual", context=dict(_CTX))
+    reporter = object()
+    await usecase.analyze_incident(incident, reporter=reporter)
+    assert analyzer.last_reporter is reporter
+
+
+async def test_cache_hit_reports_a_cached_stage_without_calling_the_analyzer():
+    usecase, _, _, analyzer, _, _ = _make()
+    await usecase.execute(source="manual", context=dict(_CTX))  # seeds the cache
+
+    class _RecordingReporter:
+        def __init__(self):
+            self.calls = []
+
+        async def stage(self, name, detail=None):
+            self.calls.append((name, detail))
+
+    reporter = _RecordingReporter()
+    incident = await usecase.create_incident(source="manual", context=dict(_CTX))
+    analysis = await usecase.analyze_incident(incident, reporter=reporter)
+
+    assert analysis.cache_state == "HIT"
+    assert analyzer.calls == 1  # still just the original seeding call
+    assert reporter.calls == [("cached", None)]
 
 
 async def test_second_same_context_is_cache_hit_without_llm():

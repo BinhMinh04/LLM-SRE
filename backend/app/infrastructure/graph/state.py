@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TypedDict
 
 from app.domain.documents.entities import RetrievedChunk
+from app.domain.incidents.ports import ProgressReporter
 
 
 class GraphState(TypedDict):
@@ -16,3 +17,4 @@ class GraphState(TypedDict):
     critique: dict
     round: int
     draft: dict
+    reporter: ProgressReporter

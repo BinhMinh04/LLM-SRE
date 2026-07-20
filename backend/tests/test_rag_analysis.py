@@ -114,6 +114,25 @@ async def test_rag_analyzer_retrieves_and_grounds():
     assert draft.evidence_chunk_ids == (chunk.id,)  # reported on the draft
 
 
+class _FakeReporter:
+    def __init__(self):
+        self.calls: list[tuple[str, str | None]] = []
+
+    async def stage(self, name, detail=None):
+        self.calls.append((name, detail))
+
+
+@pytest.mark.asyncio
+async def test_rag_analyzer_reports_retrieve_then_analyze_stages():
+    chunk = _chunk()
+    rag = RagAnalyzer(base=_CapturingBase(), embedder=_Embedder(), retriever=_Retriever(chunk))
+    reporter = _FakeReporter()
+
+    await rag.analyze(dict(_CTX), reporter=reporter)
+
+    assert reporter.calls == [("retrieve", "1 evidence chunk"), ("analyze", None)]
+
+
 # --- http: ingest a doc, analyze, see the citation ---------------------------
 
 _DB_URL = os.environ.get("TEST_DATABASE_URL") or os.environ.get(
