@@ -47,27 +47,52 @@ npm run typecheck  # type-check only
 
 ## What you can do
 
-- **Overview** — stat tiles, a severity breakdown, and recent incidents (click one to open it).
+- **Dashboard** (Overview) — 4 stat cards (active incidents, needs attention, knowledge docs, AI
+  analyses), a **Recent incidents** list (click one to open it in the Incidents view), and an
+  **Activity** feed built from real events (incidents ingested, documents indexed) — no fabricated
+  activity.
 - **Incidents** — a two-pane list + detail. **New incident** ingests a context JSON (with
   `infra_oom` / `apicost_overage` presets); the detail panel shows the AI analysis, evidence chunks,
   raw context, and the cache HIT/MISS state. Re-submitting the same incident demonstrates a cache HIT.
 - **Knowledge Base** — document cards; **New document** ingests a runbook / postmortem / etc. so it
   becomes retrievable evidence for analysis.
-- **Theme** — light/dark toggle in the top bar (persisted to `localStorage`).
+- **Search** — the top bar's search box filters incidents (by service/summary/status/fingerprint) and
+  documents (by title/service/source type/tags) live as you type, across the Dashboard, Incidents, and
+  Knowledge Base views.
+- **Notification bell** — badges with the count of incidents needing attention (Critical/High severity);
+  clicking it jumps to Incidents.
+- **Theme** — light/dark toggle in the top bar (persisted to `localStorage`). The navigation rail stays
+  dark in both themes by design.
+- **Designed loading / empty / error states** — every list shows a shimmer skeleton while loading, an
+  inviting empty state when there's nothing yet, and — if the backend is unreachable — a state that
+  explains the fix (the `docker compose … up` command above) with a **Retry** button, instead of a bare
+  error string.
 
 ## Layout
 
 ```
 src/
-  lib/          api client, DTO types, theme, severity mapping, nav config
-  components/   layout/ (Sidebar, TopBar) + ui/ (hand-rolled primitives)
-  pages/        Overview, Incidents, KnowledgeBase
+  lib/          api client (+ errText), DTO types, theme, severity/status mapping,
+                 format helpers, nav config, useDashboard (shared incidents+docs fetch)
+  components/   layout/ (Sidebar, TopBar, PageHeader) + ui/ (hand-rolled primitives:
+                 Button, Card, Badge, SeverityBadge, StatusBadge, StatTile, Modal,
+                 Skeleton, EmptyState, ErrorState) + ActivityFeed
+  pages/        Overview (dashboard), Incidents, KnowledgeBase
   features/     incidents/ and documents/ workflows (lists, detail, ingest modals)
 ```
 
 `src/lib/types.ts` mirrors the backend DTOs and is the source of truth for request/response shapes —
 when the backend adds a field, update it there (plus the relevant page/feature) to render it.
 
-Design tokens (light/dark surfaces, severity colors) are CSS variables in `src/index.css`; components
-reference roles (`bg-surface`, `text-ink`, `--sev-critical`) rather than raw hex, so the theme swaps in
-one place.
+## Design language
+
+A light SaaS incident-dashboard look with a **permanently-dark navigation rail** — the rail's CSS
+variables in `src/index.css` are not theme-flipped, so it stays dark in both light and dark mode.
+Indigo accent (`--accent`), pastel severity/status pills (always paired with a text label — never color
+alone), soft rounded cards with a gentle hover lift, and an ambient `.plane-aurora` gradient wash behind
+the content. Fonts: **Plus Jakarta Sans** (display), **Inter** (body), **JetBrains Mono** (data/ids).
+
+Components reference role tokens (`bg-surface`, `text-ink`, `--sev-critical`, `--rail-*`) rather than
+raw hex, so the theme swaps in one place. Note: Tailwind 3.4's opacity modifiers don't compile against
+CSS-variable colors (e.g. `ring-accent/25`) — use an explicit token or an arbitrary value like
+`ring-[var(--accent-weak)]` instead.
