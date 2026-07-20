@@ -116,7 +116,7 @@ documents from `GET /api/documents`.
 
 ```bash
 # 1) backend + db
-docker compose -f infra/docker-compose.yml up      # db (pgvector) + backend on :8000
+docker compose up db backend                       # db (pgvector) + backend on :8000
 #    (or: cd backend && uv sync && uv run uvicorn app.main:app --reload)
 
 # 2) frontend

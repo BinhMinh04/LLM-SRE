@@ -21,7 +21,7 @@
 
 Backend must be runnable so manual checks work:
 ```bash
-docker compose -f infra/docker-compose.yml up      # db (pgvector) + backend on :8000
+docker compose up db backend                       # db (pgvector) + backend on :8000
 # verify:
 curl -s localhost:8000/healthz                       # {"status":"ok"|"degraded",...}
 ```

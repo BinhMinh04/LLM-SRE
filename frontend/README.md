@@ -15,14 +15,14 @@ streaming, no auth, no automated tests. See `.claude/specs/FRONTEND_LOCAL.md` (d
 
   ```bash
   # from the repo root — Postgres (pgvector) + FastAPI backend:
-  docker compose -f infra/docker-compose.yml up
+  docker compose up db backend
   # sanity check:
   curl localhost:8000/healthz     # -> {"status":"ok", ...}
   ```
 
   Incident analysis calls an LLM, so the backend needs credentials for its configured provider
-  (AWS Bedrock by default; set `LLM_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` in `infra/.env` to test
-  without AWS). The read paths (listing/opening existing incidents, document ingest + list) work
+  (AWS Bedrock by default; set `LLM_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` in a root-level `.env` to
+  test without AWS). The read paths (listing/opening existing incidents, document ingest + list) work
   without a live LLM.
 
 ## Run
@@ -36,6 +36,19 @@ npm run dev        # Vite dev server on http://localhost:5173
 Open **http://localhost:5173**. The dev server proxies `/api` and `/healthz` to `:8000` (see
 `vite.config.ts`), so the app uses a relative API base and needs no CORS setup. The header status pill
 reflects `/healthz` — it turns red if the backend is unreachable.
+
+### Or: the whole stack in Docker, from the repo root
+
+No need to `cd` into `backend/` or `frontend/` — one command builds and runs all three services:
+
+```bash
+docker compose up --build   # db + backend :8000 + frontend :5173
+```
+
+The frontend image (`frontend/Dockerfile`) builds the Vite bundle with Node, then serves it with nginx,
+which reverse-proxies `/api` and `/healthz` to the `backend` service (`frontend/nginx.conf`) — the same
+relative-API pattern as the dev proxy above. This build has **no hot reload**; keep using `npm run dev`
+while actively changing frontend code, and reach for `up --build` for full-stack smoke-testing or demos.
 
 ### Other scripts
 

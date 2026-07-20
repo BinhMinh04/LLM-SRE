@@ -184,9 +184,9 @@ iim/
         login.tsx          # /login
       components/          # shadcn/ui-based components
       lib/                 # api client, sse hook
-  infra/
-    docker-compose.yml
-    .env.example
+  iac/                     # Terraform (planned)
+  docker-compose.yml       # full stack: db + backend + frontend
+  .env.example
 ```
 
 Official docs: FastAPI https://fastapi.tiangolo.com/ · React https://react.dev/ · Vite
@@ -547,7 +547,7 @@ https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items
 ## 13. Deployment (Docker Compose)
 
 ```yaml
-# infra/docker-compose.yml (sketch)
+# docker-compose.yml (sketch, repo root)
 services:
   db:
     image: pgvector/pgvector:pg16
