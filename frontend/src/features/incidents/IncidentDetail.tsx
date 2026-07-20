@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Cpu, FileSearch, FileText, Gauge, MousePointerClick } from 'lucide-react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { AlertTriangle, Cpu, FileSearch, FileText, Gauge, MousePointerClick, Sparkles } from 'lucide-react'
 import { api, errText } from '../../lib/api'
 import type { IncidentDetail as Detail } from '../../lib/types'
 import { Card } from '../../components/ui/Card'
@@ -11,11 +11,25 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { incidentRef } from '../../lib/format'
+import { useIncidentStream } from '../../lib/useIncidentStream'
 
 export function IncidentDetail({ incidentId }: { incidentId: string | null }) {
   const [d, setD] = useState<Detail | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const fetchDetail = useCallback((id: string) => {
+    let alive = true
+    setErr(null)
+    api
+      .get<Detail>(`/api/incidents/${id}`)
+      .then((r) => alive && setD(r))
+      .catch((e) => alive && setErr(errText(e)))
+      .finally(() => alive && setLoading(false))
+    return () => {
+      alive = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!incidentId) {
@@ -23,19 +37,21 @@ export function IncidentDetail({ incidentId }: { incidentId: string | null }) {
       setErr(null)
       return
     }
-    let alive = true
     setD(null)
-    setErr(null)
     setLoading(true)
-    api
-      .get<Detail>(`/api/incidents/${incidentId}`)
-      .then((r) => alive && setD(r))
-      .catch((e) => alive && setErr(errText(e)))
-      .finally(() => alive && setLoading(false))
-    return () => {
-      alive = false
-    }
-  }, [incidentId])
+    return fetchDetail(incidentId)
+  }, [incidentId, fetchDetail])
+
+  // While the incident is still analyzing, subscribe to its live progress; once analysis
+  // settles (success or failure), re-fetch the authoritative detail rather than hand-building
+  // it from the stream payload.
+  const analyzing = d?.status === 'analyzing'
+  const stream = useIncidentStream(analyzing ? incidentId : null)
+
+  useEffect(() => {
+    if (!incidentId || !(stream.result || stream.error)) return
+    return fetchDetail(incidentId)
+  }, [stream.result, stream.error, incidentId, fetchDetail])
 
   if (!incidentId) {
     return (
@@ -77,7 +93,27 @@ export function IncidentDetail({ incidentId }: { incidentId: string | null }) {
       </div>
 
       {/* Analysis */}
-      {a ? (
+      {analyzing && !stream.result && !stream.error ? (
+        <Card className="p-5">
+          <div className="flex items-center gap-2">
+            <Sparkles size={15} className="text-accent" />
+            <h3 className="font-display text-sm font-bold text-ink">Analyzing…</h3>
+          </div>
+          <ul className="mt-4 space-y-3">
+            {stream.stages.length === 0 ? (
+              <li className="text-sm text-muted">Starting…</li>
+            ) : (
+              stream.stages.map((s, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+                  <span className="font-medium text-ink">{s.label}</span>
+                  {s.detail && <span className="text-xs text-muted">{s.detail}</span>}
+                </li>
+              ))
+            )}
+          </ul>
+        </Card>
+      ) : a ? (
         <Card className="divide-y divide-hair">
           <Section label="Summary">{a.summary}</Section>
           <Section label="Root cause">{a.root_cause}</Section>
@@ -90,6 +126,24 @@ export function IncidentDetail({ incidentId }: { incidentId: string | null }) {
             <span className="inline-flex items-center gap-1.5">
               <Cpu size={13} /> <span className="font-mono text-ink-2">{a.model_id}</span>
             </span>
+          </div>
+        </Card>
+      ) : d.status === 'failed' ? (
+        <Card className="p-5">
+          <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+            <span
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+              style={{
+                background: 'color-mix(in srgb, var(--sev-critical) 14%, transparent)',
+                color: 'var(--sev-critical)',
+              }}
+            >
+              <AlertTriangle size={26} />
+            </span>
+            <h3 className="font-display text-base font-bold text-ink">Analysis failed</h3>
+            <p className="mt-1.5 max-w-md text-sm leading-relaxed text-ink-2">
+              {stream.error ?? 'The AI analysis could not complete.'}
+            </p>
           </div>
         </Card>
       ) : (

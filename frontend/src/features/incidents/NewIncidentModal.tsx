@@ -37,6 +37,8 @@ export function NewIncidentModal({
     }
     setBusy(true)
     try {
+      // The backend returns as soon as the incident is created — analysis runs in the
+      // background. Hand off to the detail view immediately; it shows live progress.
       const res = await api.post<IncidentCreated>('/api/incidents', { source, context })
       onCreated(res.incident_id)
       onClose()
@@ -82,7 +84,7 @@ export function NewIncidentModal({
           Cancel
         </Button>
         <Button onClick={submit} disabled={busy}>
-          {busy ? 'Analyzing…' : 'Analyze'}
+          {busy ? 'Submitting…' : 'Analyze'}
         </Button>
       </div>
     </Modal>
