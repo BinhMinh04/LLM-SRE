@@ -1,0 +1,73 @@
+// TypeScript mirrors of the backend response/request DTOs.
+// Source of truth: backend/app/interface/http/dto/* (see .claude/specs/FRONTEND_LOCAL.md §3).
+
+export interface EvidenceRef {
+  chunk_id: string
+  source_type: string
+  title: string
+}
+
+export interface AnalysisOut {
+  severity: string
+  summary: string
+  root_cause: string
+  recommended_action: string
+  confidence: number | null
+  model_id: string
+  _cache: 'HIT' | 'MISS'
+  evidence: EvidenceRef[]
+}
+
+export interface IncidentSummary {
+  id: string
+  service: string
+  source: string
+  status: string
+  fingerprint: string
+  created_at: string
+  severity?: string | null
+  summary?: string | null
+}
+
+export interface IncidentDetail {
+  id: string
+  service: string
+  source: string
+  status: string
+  fingerprint: string
+  context: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  analysis: AnalysisOut | null
+}
+
+export interface IncidentCreated {
+  incident_id: string
+  status: string
+  stream: string
+}
+
+export interface DocumentSummary {
+  id: string
+  title: string
+  source_type: string
+  service: string | null
+  tags: string[]
+  chunk_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface DocumentCreated {
+  document_id: string
+  chunks: number
+}
+
+export interface Health {
+  status: string
+  app: string
+  database: string
+}
+
+export type SourceType = 'runbook' | 'postmortem' | 'architecture' | 'vendor'
+export const SOURCE_TYPES: SourceType[] = ['runbook', 'postmortem', 'architecture', 'vendor']
