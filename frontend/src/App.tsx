@@ -1,27 +1,60 @@
 import { useState } from 'react'
+import { Plus } from 'lucide-react'
 import { useTheme } from './lib/theme'
 import { VIEW_META, type View } from './lib/nav'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
+import { Button } from './components/ui/Button'
+import { Incidents } from './pages/Incidents'
+import { NewIncidentModal } from './features/incidents/NewIncidentModal'
 
-// Foundation shell: sidebar navigation + top bar + theme. Feature pages land in later PRs;
-// each destination shows a placeholder for now.
+// Adds the Incidents workflow (list + detail + ingest). Overview and Knowledge Base
+// remain placeholders until their PRs land.
 export default function App() {
   const { theme, toggle } = useTheme()
-  const [view, setView] = useState<View>('overview')
+  const [view, setView] = useState<View>('incidents')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [dataVersion, setDataVersion] = useState(0)
+  const [showIncident, setShowIncident] = useState(false)
+
   const meta = VIEW_META[view]
+  const actions = (
+    <Button onClick={() => setShowIncident(true)}>
+      <Plus size={15} /> New incident
+    </Button>
+  )
 
   return (
     <div className="flex h-full">
       <Sidebar view={view} onNavigate={setView} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={meta.title} subtitle={meta.subtitle} theme={theme} onToggleTheme={toggle} />
+        <TopBar
+          title={meta.title}
+          subtitle={meta.subtitle}
+          actions={actions}
+          theme={theme}
+          onToggleTheme={toggle}
+        />
         <main className="flex-1 overflow-hidden bg-plane">
-          <div className="animate-in flex h-full items-center justify-center p-6 text-center font-mono text-xs uppercase tracking-wider text-muted">
-            {meta.title} · coming online
-          </div>
+          {view === 'incidents' ? (
+            <Incidents selectedId={selectedId} onSelect={setSelectedId} refreshKey={dataVersion} />
+          ) : (
+            <div className="animate-in flex h-full items-center justify-center p-6 text-center font-mono text-xs uppercase tracking-wider text-muted">
+              {meta.title} · coming online
+            </div>
+          )}
         </main>
       </div>
+
+      <NewIncidentModal
+        open={showIncident}
+        onClose={() => setShowIncident(false)}
+        onCreated={(id) => {
+          setSelectedId(id)
+          setView('incidents')
+          setDataVersion((v) => v + 1)
+        }}
+      />
     </div>
   )
 }
