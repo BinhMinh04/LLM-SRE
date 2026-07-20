@@ -1,0 +1,22 @@
+"""SQLAlchemy repository adapters, split by aggregate.
+
+Re-exported so callers can `from app.infrastructure.db.repositories import SqlAlchemy...`.
+"""
+
+from app.infrastructure.db.repositories.documents import (
+    SqlAlchemyDocumentRepository,
+    SqlAlchemyRetriever,
+)
+from app.infrastructure.db.repositories.incidents import (
+    SqlAlchemyAnalysisCacheRepository,
+    SqlAlchemyIncidentRepository,
+)
+from app.infrastructure.db.repositories.unit_of_work import SqlAlchemyUnitOfWork
+
+__all__ = [
+    "SqlAlchemyIncidentRepository",
+    "SqlAlchemyAnalysisCacheRepository",
+    "SqlAlchemyDocumentRepository",
+    "SqlAlchemyRetriever",
+    "SqlAlchemyUnitOfWork",
+]

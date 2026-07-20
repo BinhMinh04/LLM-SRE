@@ -12,7 +12,7 @@ Legend: **DW** = "done when". Dependencies reference task ids.
 
 ## Step 0 — AI layer ✅ DONE
 
-Already implemented: `ai/analyze_incident.py` + `ai/samples/*.json`. No AWS needed.
+Already implemented: `backend/ai/analyze_incident.py` + `backend/ai/samples/*.json`. No AWS needed.
 - **DW (met):** a sample context in → convincing 5-field JSON out, grounded only in the provided data.
 
 ---

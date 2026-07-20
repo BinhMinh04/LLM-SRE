@@ -18,7 +18,7 @@ shows recurrences and the "cache HIT" speed difference).
 | `service` | S | e.g. `gcm` |
 | `cluster` | S | e.g. `prod-fargate` (optional) |
 | `started_at` | S | ISO 8601 — when the anomaly started |
-| `fingerprint` | S | See `fingerprint()` in `ai/analyze_incident.py` |
+| `fingerprint` | S | See `fingerprint()` in `backend/ai/analyze_incident.py` |
 | `severity` | S | AI-assessed: `critical` \| `warning` \| `info` |
 | `summary` | S | AI: 1–2 sentences |
 | `root_cause` | S | AI: reasoning with evidence |
@@ -41,7 +41,7 @@ newest first"* for the board's left column.
 
 ### 1.2 `iim-cache` — fingerprint cache + ticket dedup
 
-Replaces the in-memory `_CACHE` in `ai/analyze_incident.py` (Step 4). Also backs ticket dedup.
+Replaces the in-memory `_CACHE` in `backend/ai/analyze_incident.py` (Step 4). Also backs ticket dedup.
 
 | Attribute | Type | Notes |
 |---|---|---|
@@ -61,7 +61,7 @@ Replaces the in-memory `_CACHE` in `ai/analyze_incident.py` (Step 4). Also backs
 
 ## 2. `IncidentContext` — the collector output shape
 
-The shape is **pinned by the existing `build_user_message()` contract** in `ai/analyze_incident.py`: every
+The shape is **pinned by the existing `build_user_message()` contract** in `backend/ai/analyze_incident.py`: every
 field below is one the AI layer already reads. All fields except `service` are optional — the collector
 emits only what it gathered, and `build_user_message()` prints only present fields (handles both infra and
 non-infra incidents). Proposed as a `TypedDict` (or dataclass):
@@ -107,8 +107,8 @@ class IncidentContext(TypedDict, total=False):
 ```
 
 The canonical examples of two valid shapes are the sample files:
-- Infrastructure: `ai/samples/infra_oom.json` (`ecs`, `alb`, `metrics`, `sample_logs`, `recent_deploy`).
-- Non-infrastructure: `ai/samples/apicost_overage.json` (`alert` + `metrics` / `sample_logs`).
+- Infrastructure: `backend/ai/samples/infra_oom.json` (`ecs`, `alb`, `metrics`, `sample_logs`, `recent_deploy`).
+- Non-infrastructure: `backend/ai/samples/apicost_overage.json` (`alert` + `metrics` / `sample_logs`).
 
 ## 3. AI analysis result shape
 

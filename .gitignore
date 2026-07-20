@@ -48,3 +48,9 @@ tmp/
 .claude/logs/
 .claude/history/
 .claude/cache/
+docs/
+scripts/
+AGENTS.md
+harness.db
+harness.db-*
+.harness/

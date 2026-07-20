@@ -1,0 +1,11 @@
+"""Health response DTO."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel
+
+
+class HealthResponse(BaseModel):
+    status: str  # "ok" | "degraded"
+    app: str
+    database: str  # "up" | "down"

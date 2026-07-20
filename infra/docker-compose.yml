@@ -1,0 +1,39 @@
+# IIM local stack. M1: Postgres (pgvector) + backend (FastAPI).
+# The frontend service is added in M4 once frontend/ exists.
+# pgvector image: https://hub.docker.com/r/pgvector/pgvector
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-iim}
+      POSTGRES_USER: ${POSTGRES_USER:-iim}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-iim}
+    ports:
+      # Host port is configurable to avoid clashes with other local Postgres instances.
+      - "${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-iim} -d ${POSTGRES_DB:-iim}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ../backend
+    environment:
+      AWS_REGION: ${AWS_REGION:-ap-southeast-1}
+      MODEL_ID: ${MODEL_ID:-anthropic.claude-3-5-haiku-20241022-v1:0}
+      FAST_MODEL_ID: ${FAST_MODEL_ID:-anthropic.claude-3-5-haiku-20241022-v1:0}
+      EMBED_MODEL_ID: ${EMBED_MODEL_ID:-amazon.titan-embed-text-v2:0}
+      MAX_ROUNDS: ${MAX_ROUNDS:-2}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-1800}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-iim}:${DB_PASSWORD:-iim}@db:5432/${POSTGRES_DB:-iim}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
