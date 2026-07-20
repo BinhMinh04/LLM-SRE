@@ -15,14 +15,14 @@ streaming, no auth, no automated tests. See `.claude/specs/FRONTEND_LOCAL.md` (d
 
   ```bash
   # from the repo root — Postgres (pgvector) + FastAPI backend:
-  docker compose -f iac/docker-compose.yml up db backend
+  docker compose up db backend
   # sanity check:
   curl localhost:8000/healthz     # -> {"status":"ok", ...}
   ```
 
   Incident analysis calls an LLM, so the backend needs credentials for its configured provider
-  (AWS Bedrock by default; set `LLM_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` in `iac/.env` to test
-  without AWS). The read paths (listing/opening existing incidents, document ingest + list) work
+  (AWS Bedrock by default; set `LLM_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` in a root-level `.env` to
+  test without AWS). The read paths (listing/opening existing incidents, document ingest + list) work
   without a live LLM.
 
 ## Run
@@ -42,7 +42,7 @@ reflects `/healthz` — it turns red if the backend is unreachable.
 No need to `cd` into `backend/` or `frontend/` — one command builds and runs all three services:
 
 ```bash
-docker compose -f iac/docker-compose.yml up --build   # db + backend :8000 + frontend :5173
+docker compose up --build   # db + backend :8000 + frontend :5173
 ```
 
 The frontend image (`frontend/Dockerfile`) builds the Vite bundle with Node, then serves it with nginx,

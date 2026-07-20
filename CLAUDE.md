@@ -21,8 +21,8 @@ ingested (`POST /api/incidents`). The app is the entry point:
 
 ```bash
 # Full stack — db (pgvector) + backend (FastAPI) + frontend (nginx static build).
-# Run from the repo root; no need to cd into backend/ or frontend/ first:
-docker compose -f iac/docker-compose.yml up --build
+# docker-compose.yml lives at the repo root, alongside backend/ and frontend/:
+docker compose up --build
 # backend only, for development:
 cd backend && uv sync && uv run uvicorn app.main:app --reload
 ```
@@ -56,11 +56,11 @@ lean (no SSE streaming, no auth, no automated tests). Full design and task break
 
 ```bash
 # Option A — full stack in Docker, from the repo root (no cd needed):
-docker compose -f iac/docker-compose.yml up --build     # db + backend :8000 + frontend :5173
+docker compose up --build                # db + backend :8000 + frontend :5173
 
 # Option B — frontend with hot reload, backend still via Docker:
-docker compose -f iac/docker-compose.yml up db backend  # db (pgvector) + backend on :8000
-cd frontend && npm install && npm run dev               # Vite on :5173, proxies /api -> :8000
+docker compose up db backend             # db (pgvector) + backend on :8000
+cd frontend && npm install && npm run dev  # Vite on :5173, proxies /api -> :8000
 ```
 
 Open **http://localhost:5173**. In dev mode, Vite proxies `/api` and `/healthz` to `:8000`
@@ -178,7 +178,8 @@ current state:
 - **Step 4**: replace the in-memory `_CACHE` with **DynamoDB + TTL**.
 - **Serverless / AWS CDK** deployment (`.serverless/`, `cdk.out/` in `.gitignore`).
 - `infra/` was renamed to **`iac/`** — it will hold Terraform once infrastructure-as-code work starts
-  (not written yet; today it only holds `docker-compose.yml` for local full-stack runs).
+  (not written yet, so the folder is currently empty). `docker-compose.yml` moved to the repo root,
+  alongside `backend/` and `frontend/`, so `docker compose up` needs no `-f` flag.
 
 The **React frontend** now exists as `frontend/` (a local test UI — see the Frontend section above),
 superseding the originally-planned `board/` location. Streaming (SSE), auth, and a polished production
