@@ -5,20 +5,24 @@ import { VIEW_META, type View } from './lib/nav'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { Button } from './components/ui/Button'
+import { Overview } from './pages/Overview'
 import { Incidents } from './pages/Incidents'
 import { KnowledgeBase } from './pages/KnowledgeBase'
 import { NewIncidentModal } from './features/incidents/NewIncidentModal'
 import { NewDocumentModal } from './features/documents/NewDocumentModal'
 
-// Adds the Knowledge Base (document list + ingest). Overview remains a placeholder
-// until its PR lands.
 export default function App() {
   const { theme, toggle } = useTheme()
-  const [view, setView] = useState<View>('incidents')
+  const [view, setView] = useState<View>('overview')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
   const [showIncident, setShowIncident] = useState(false)
   const [showDoc, setShowDoc] = useState(false)
+
+  const openIncident = (id: string) => {
+    setSelectedId(id)
+    setView('incidents')
+  }
 
   const meta = VIEW_META[view]
   const actions =
@@ -44,15 +48,11 @@ export default function App() {
           onToggleTheme={toggle}
         />
         <main className="flex-1 overflow-hidden bg-plane">
+          {view === 'overview' && <Overview refreshKey={dataVersion} onOpenIncident={openIncident} />}
           {view === 'incidents' && (
             <Incidents selectedId={selectedId} onSelect={setSelectedId} refreshKey={dataVersion} />
           )}
           {view === 'knowledge' && <KnowledgeBase refreshKey={dataVersion} />}
-          {view === 'overview' && (
-            <div className="animate-in flex h-full items-center justify-center p-6 text-center font-mono text-xs uppercase tracking-wider text-muted">
-              {meta.title} · coming online
-            </div>
-          )}
         </main>
       </div>
 
