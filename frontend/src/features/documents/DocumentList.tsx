@@ -32,7 +32,7 @@ export function DocumentList({
   if (error) return <ErrorState detail={error} onRetry={onRetry} />
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {[0, 1, 2, 3, 4, 5].map((k) => (
           <Skeleton key={k} className="h-40 rounded-2xl" />
         ))}
@@ -60,7 +60,7 @@ export function DocumentList({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {filtered.map((d) => (
         <div
           key={d.id}
