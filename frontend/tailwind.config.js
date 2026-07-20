@@ -39,6 +39,11 @@ export default {
         card: '0 1px 2px rgba(2,6,23,0.04), 0 6px 16px rgba(2,6,23,0.05)',
         'card-hover': '0 2px 6px rgba(2,6,23,0.06), 0 16px 32px rgba(2,6,23,0.10)',
         rail: '0 8px 24px rgba(2,6,23,0.4)',
+        // Raised-button depth: a tight contact shadow plus a soft ambient one,
+        // deepening further on hover and flattening on press for tactile feedback.
+        btn: '0 1px 1px rgba(2,6,23,0.07), 0 4px 8px rgba(2,6,23,0.10), 0 10px 20px rgba(2,6,23,0.08)',
+        'btn-hover': '0 2px 3px rgba(2,6,23,0.09), 0 8px 16px rgba(2,6,23,0.14), 0 18px 32px rgba(2,6,23,0.12)',
+        'btn-press': '0 1px 1px rgba(2,6,23,0.06)',
       },
     },
   },

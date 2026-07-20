@@ -48,9 +48,9 @@ export function Overview({
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-10 md:px-8">
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Stat cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {loading ? (
             [0, 1, 2, 3].map((k) => <Skeleton key={k} className="h-[132px] rounded-2xl" />)
           ) : (
@@ -100,7 +100,7 @@ export function Overview({
         </div>
 
         {/* Recent incidents + activity */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr]">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.7fr_1fr]">
           <Card className="animate-in p-5 md:p-6">
             <CardHeader
               title="Recent incidents"
