@@ -47,6 +47,18 @@ export interface IncidentCreated {
   stream: string
 }
 
+// GET /api/incidents/{id}/stream (SSE) — one message per line: `event: <type>` + `data: <json>`.
+export interface StageEvent {
+  stage: string
+  label: string
+  detail: string | null
+}
+
+export type IncidentStreamEvent =
+  | { event: 'stage'; data: StageEvent }
+  | { event: 'analyzed'; data: IncidentDetail }
+  | { event: 'failed'; data: { message: string } }
+
 export interface DocumentSummary {
   id: string
   title: string

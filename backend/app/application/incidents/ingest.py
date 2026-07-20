@@ -1,10 +1,17 @@
-"""IngestIncident use case: cache-first single-call analysis (M2 baseline).
+"""IngestIncident use case: cache-first analysis, split into two phases (SSE streaming design,
+decision 2026-07-20).
 
-Flow: fingerprint(context) -> cache lookup within TTL. HIT copies the stored analysis for this
-incident with no Analyzer call; MISS runs the Analyzer, persists the analysis, and writes the cache
-row. The whole thing commits through the UnitOfWork. This class depends ONLY on domain entities,
-pure rules, and ports — no framework, DB, or provider imports — so it is unit-testable with fakes and
-is the exact seam M3's LangGraph analyzer swaps into (a different `Analyzer` implementation).
+`create_incident` persists the incident (status="analyzing") and commits — fast, so the HTTP layer
+can return immediately. `analyze_incident` does the rest: fingerprint(context) -> cache lookup
+within TTL. HIT copies the stored analysis for this incident with no Analyzer call (reporting a
+"cached" stage); MISS runs the Analyzer (passing the reporter through so it can report its own
+stages), persists the analysis, and writes the cache row. Each phase commits through the
+UnitOfWork. `execute` is a convenience that runs both phases back to back, for callers that don't
+need the split (the dev/debug harness, direct unit/integration tests).
+
+This class depends ONLY on domain entities, pure rules, and ports — no framework, DB, or provider
+imports — so it is unit-testable with fakes and is the exact seam the RAG/LangGraph analyzers swap
+into (a different `Analyzer` implementation).
 """
 
 from __future__ import annotations
@@ -20,6 +27,8 @@ from app.domain.incidents.ports import (
     Analyzer,
     Clock,
     IncidentRepository,
+    NullReporter,
+    ProgressReporter,
     UnitOfWork,
 )
 
@@ -33,30 +42,38 @@ class IngestIncident:
     uow: UnitOfWork
     cache_ttl_seconds: int
 
-    async def execute(self, *, source: str, context: dict) -> tuple[Incident, Analysis]:
-        """Persist the incident, produce its analysis cache-first, and return both.
+    async def create_incident(self, *, source: str, context: dict) -> Incident:
+        """Persist a new incident (status="analyzing") and commit. No analysis yet.
 
         Precondition: `context['service']` is present (validated at the interface boundary).
         """
-        fp = fingerprint(context)
         incident = await self.incidents.add(
             Incident(
                 service=context["service"],
                 source=source,
-                fingerprint=fp,
+                fingerprint=fingerprint(context),
                 context=context,
                 status="analyzing",
             )
         )
+        await self.uow.commit()
+        return incident
 
+    async def analyze_incident(
+        self, incident: Incident, *, reporter: ProgressReporter | None = None
+    ) -> Analysis:
+        """Cache-first analysis of an already-created incident; persists + commits the result."""
+        reporter = reporter or NullReporter()
+        fp = incident.fingerprint
         now = self.clock.now()
         cached = await self.cache.get_valid(fp, now)
         if cached is not None:
+            await reporter.stage("cached")
             analysis = await self.incidents.add_analysis(
                 _copy_analysis(incident.id, cached, cache_state="HIT")
             )
         else:
-            draft = await self.analyzer.analyze(context)
+            draft = await self.analyzer.analyze(incident.context, reporter=reporter)
             analysis = await self.incidents.add_analysis(
                 Analysis(
                     incident_id=incident.id,
@@ -77,6 +94,14 @@ class IngestIncident:
         await self.incidents.set_status(incident.id, "analyzed")
         incident.status = "analyzed"
         await self.uow.commit()
+        return analysis
+
+    async def execute(
+        self, *, source: str, context: dict, reporter: ProgressReporter | None = None
+    ) -> tuple[Incident, Analysis]:
+        """Convenience: create the incident, then analyze it, in one call."""
+        incident = await self.create_incident(source=source, context=context)
+        analysis = await self.analyze_incident(incident, reporter=reporter)
         return incident, analysis
 
 

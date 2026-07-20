@@ -3,7 +3,7 @@
 // title-cased neutral pill rather than breaking, since the backend owns the
 // exact vocabulary.
 
-export type StatusTone = 'info' | 'warning' | 'success' | 'neutral' | 'accent'
+export type StatusTone = 'info' | 'warning' | 'success' | 'neutral' | 'accent' | 'danger'
 
 export interface StatusMeta {
   label: string
@@ -16,6 +16,7 @@ const TABLE: Record<string, StatusMeta> = {
   investigating: { label: 'Investigating', tone: 'info' },
   analyzing: { label: 'Analyzing', tone: 'info' },
   analyzed: { label: 'Analyzed', tone: 'accent' },
+  failed: { label: 'Failed', tone: 'danger' },
   triaged: { label: 'Triaged', tone: 'accent' },
   monitoring: { label: 'Monitoring', tone: 'accent' },
   mitigated: { label: 'Mitigated', tone: 'success' },

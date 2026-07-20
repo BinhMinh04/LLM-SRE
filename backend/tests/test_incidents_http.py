@@ -24,6 +24,7 @@ from app.infrastructure.db.orm import (
 )
 from app.interface.http.deps import get_base_analyzer, get_embedder, get_session
 from app.main import app
+from tests.sse_test_utils import iter_sse
 
 pytestmark = pytest.mark.asyncio
 
@@ -94,13 +95,22 @@ async def client():
     await engine.dispose()
 
 
+async def _await_analyzed(client, incident_id: str) -> None:
+    """Drain the incident's SSE stream to its terminal event — deterministic, no sleep-polling —
+    so assertions on its analysis can run once the background analysis has actually finished."""
+    async with client.stream("GET", f"/api/incidents/{incident_id}/stream") as resp:
+        events = [e async for e in iter_sse(resp)]
+    assert events[-1][0] == "analyzed", events
+
+
 async def test_post_get_and_cache_hit(client):
     r = await client.post("/api/incidents", json={"source": "manual", "context": _CTX})
     assert r.status_code == 201, r.text
     created = r.json()
     incident_id = created["incident_id"]
-    assert created["status"] == "analyzed"
+    assert created["status"] == "analyzing"
     assert created["stream"] == f"/api/incidents/{incident_id}/stream"
+    await _await_analyzed(client, incident_id)
 
     r = await client.get(f"/api/incidents/{incident_id}")
     assert r.status_code == 200
@@ -114,6 +124,7 @@ async def test_post_get_and_cache_hit(client):
 
     r2 = await client.post("/api/incidents", json={"source": "manual", "context": _CTX})
     assert r2.status_code == 201
+    await _await_analyzed(client, r2.json()["incident_id"])
     r2_detail = await client.get(f"/api/incidents/{r2.json()['incident_id']}")
     assert r2_detail.json()["analysis"]["_cache"] == "HIT"
 

@@ -111,3 +111,50 @@ async def test_critic_loop_reretrieves_then_finishes():
     assert retriever.calls == 2  # retrieved again on the second round
     assert draft.severity == "critical"
     assert draft.evidence_chunk_ids == (chunk.id,)  # deduped across rounds
+
+
+class _FakeReporter:
+    def __init__(self):
+        self.calls: list[tuple[str, str | None]] = []
+
+    async def stage(self, name, detail=None):
+        self.calls.append((name, detail))
+
+
+async def test_graph_reports_a_stage_per_node_in_order():
+    chat, chunk = _ScriptedChat(), _chunk()
+    graph = GraphAnalyzer(chat, _Embedder(), _Retriever(chunk), model_label="graph:test")
+    reporter = _FakeReporter()
+
+    await graph.analyze(dict(_CTX), reporter=reporter)
+
+    assert reporter.calls == [
+        ("triage", None),
+        ("retrieve", "1 evidence chunk"),
+        ("diagnose", None),
+        ("critic", None),
+        ("synthesize", None),
+    ]
+
+
+async def test_graph_reports_triage_again_on_critic_retry():
+    chat, chunk = _ScriptedChat(critic_need_more=(True, False)), _chunk()
+    graph = GraphAnalyzer(
+        chat, _Embedder(), _Retriever(chunk), model_label="graph:test", max_rounds=2
+    )
+    reporter = _FakeReporter()
+
+    await graph.analyze(dict(_CTX), reporter=reporter)
+
+    stage_names = [name for name, _ in reporter.calls]
+    assert stage_names == [
+        "triage",
+        "retrieve",
+        "diagnose",
+        "critic",
+        "triage",
+        "retrieve",
+        "diagnose",
+        "critic",
+        "synthesize",
+    ]

@@ -23,6 +23,8 @@ __all__ = [
     "AnalysisCacheRepository",
     "Clock",
     "UnitOfWork",
+    "ProgressReporter",
+    "NullReporter",
 ]
 
 
@@ -31,10 +33,17 @@ class Analyzer(Protocol):
 
     `evidence` (retrieved knowledge chunks) is optional; when supplied, the analyzer grounds its
     reasoning and cites it. M2/no-RAG callers pass nothing and behave as before.
+
+    `reporter` is optional; multi-step analyzers (RagAnalyzer, GraphAnalyzer) report their stages
+    through it for live progress (SSE streaming design, decision 2026-07-20). Single-call base
+    analyzers (Bedrock/DeepSeek) have no internal stages to report and ignore it.
     """
 
     async def analyze(
-        self, context: dict, evidence: "list[RetrievedChunk] | None" = None
+        self,
+        context: dict,
+        evidence: "list[RetrievedChunk] | None" = None,
+        reporter: "ProgressReporter | None" = None,
     ) -> AnalysisDraft: ...
 
 
@@ -68,3 +77,22 @@ class AnalysisCacheRepository(Protocol):
     async def get_valid(self, fingerprint: str, now: datetime) -> Analysis | None: ...
 
     async def put(self, fingerprint: str, analysis_id: uuid.UUID, expires_at: datetime) -> None: ...
+
+
+class ProgressReporter(Protocol):
+    """Notified of analysis progress (SSE streaming design, decision 2026-07-20).
+
+    Analyzers call `stage()` as they enter each step, so a caller (the ingest use case, an SSE
+    endpoint) can surface live progress. Purely observational — never raises, never influences
+    the analysis itself.
+    """
+
+    async def stage(self, name: str, detail: str | None = None) -> None: ...
+
+
+class NullReporter:
+    """Default no-op ProgressReporter — existing callers (tests, the dev/debug harness) that
+    don't pass one keep working unchanged."""
+
+    async def stage(self, name: str, detail: str | None = None) -> None:
+        return None
