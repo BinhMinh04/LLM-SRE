@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Activity } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Health } from '../lib/types'
 
@@ -30,18 +29,18 @@ export function HealthPill() {
   const m = meta[state]
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-lg border border-hair px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-wide"
+      className="inline-flex h-9 items-center gap-2 rounded-xl border border-hair bg-surface px-3 text-xs font-semibold"
       style={{ color: m.color }}
+      title={`Backend: ${m.label}`}
     >
-      <Activity size={13} />
-      <span className="relative flex h-1.5 w-1.5">
+      <span className="relative flex h-2 w-2">
         {state === 'ok' && (
           <span
             className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
             style={{ background: m.color }}
           />
         )}
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: m.color }} />
+        <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: m.color }} />
       </span>
       {m.label}
     </span>

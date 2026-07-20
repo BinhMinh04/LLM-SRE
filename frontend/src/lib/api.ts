@@ -14,17 +14,29 @@ export class ApiError extends Error {
 
 async function handle<T>(res: Response): Promise<T> {
   const text = await res.text()
-  const body = text ? JSON.parse(text) : null
+  let body: unknown = null
+  try {
+    body = text ? JSON.parse(text) : null
+  } catch {
+    body = null // non-JSON error page (e.g. proxy 500) — fall back to status text
+  }
   if (!res.ok) {
     const detail =
       body && typeof body === 'object' && 'detail' in body
         ? typeof (body as { detail: unknown }).detail === 'string'
           ? (body as { detail: string }).detail
           : JSON.stringify((body as { detail: unknown }).detail)
-        : res.statusText
+        : res.statusText || `Request failed (HTTP ${res.status})`
     throw new ApiError(res.status, detail)
   }
   return body as T
+}
+
+/** Normalise any thrown value (ApiError, network TypeError, …) to a message. */
+export function errText(e: unknown): string {
+  if (e instanceof ApiError) return e.detail
+  if (e instanceof Error) return e.message
+  return String(e)
 }
 
 export const api = {

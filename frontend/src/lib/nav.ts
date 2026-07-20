@@ -1,4 +1,12 @@
-import { AlertTriangle, BellRing, BookOpen, LayoutDashboard, Settings, type LucideIcon } from 'lucide-react'
+import {
+  AlertTriangle,
+  BookOpen,
+  LayoutDashboard,
+  Server,
+  Settings,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 
 export type View = 'overview' | 'incidents' | 'knowledge'
 
@@ -8,21 +16,55 @@ export interface NavItem {
   icon: LucideIcon
 }
 
-/** Active destinations wired to real endpoints. */
-export const NAV: NavItem[] = [
-  { view: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { view: 'incidents', label: 'Incidents', icon: AlertTriangle },
-  { view: 'knowledge', label: 'Knowledge Base', icon: BookOpen },
-]
+export interface SoonItem {
+  label: string
+  icon: LucideIcon
+}
 
-/** Placeholders for the full project vision — shown disabled until built. */
-export const NAV_SOON: { label: string; icon: LucideIcon }[] = [
-  { label: 'Alerts', icon: BellRing },
-  { label: 'Settings', icon: Settings },
+export interface NavSection {
+  heading: string
+  items: NavItem[]
+  soon?: SoonItem[]
+}
+
+/**
+ * Sidebar structure. `items` are wired to real endpoints; `soon` entries are
+ * honest placeholders for the wider project vision, shown disabled.
+ */
+export const NAV_SECTIONS: NavSection[] = [
+  {
+    heading: 'Overview',
+    items: [{ view: 'overview', label: 'Dashboard', icon: LayoutDashboard }],
+  },
+  {
+    heading: 'Operations',
+    items: [
+      { view: 'incidents', label: 'Incidents', icon: AlertTriangle },
+      { view: 'knowledge', label: 'Knowledge Base', icon: BookOpen },
+    ],
+  },
+  {
+    heading: 'System',
+    items: [],
+    soon: [
+      { label: 'Services', icon: Server },
+      { label: 'Team', icon: Users },
+      { label: 'Settings', icon: Settings },
+    ],
+  },
 ]
 
 export const VIEW_META: Record<View, { title: string; subtitle: string }> = {
-  overview: { title: 'Overview', subtitle: 'Incident posture and knowledge base at a glance' },
-  incidents: { title: 'Incidents', subtitle: 'Ingest, triage, and inspect AI analysis with evidence' },
-  knowledge: { title: 'Knowledge Base', subtitle: 'Documents indexed for retrieval-augmented analysis' },
+  overview: {
+    title: 'Dashboard',
+    subtitle: 'Incident posture, knowledge base, and live backend health',
+  },
+  incidents: {
+    title: 'Incidents',
+    subtitle: 'Ingest, triage, and inspect AI analysis with cited evidence',
+  },
+  knowledge: {
+    title: 'Knowledge Base',
+    subtitle: 'Documents indexed for retrieval-augmented analysis',
+  },
 }

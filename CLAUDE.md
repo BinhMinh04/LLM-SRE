@@ -63,20 +63,36 @@ cd frontend && npm install && npm run dev              # Vite on :5173, proxies 
 Open **http://localhost:5173**. The Vite dev server proxies `/api` and `/healthz` to `:8000`, so the
 app talks to a relative base and needs no CORS config. Structure:
 
-- **`src/lib/`** — `api.ts` (thin fetch wrapper; throws `ApiError` carrying the backend `detail` so 422s
-  surface in the UI), `types.ts` (mirrors the backend DTOs — the source of truth for request/response
-  shapes), `theme.ts` (light/dark), `severity.ts` (maps severity to the fixed status palette),
-  `nav.ts` (the three views).
-- **`src/components/`** — `layout/` (Sidebar, TopBar) and `ui/` (hand-rolled primitives: Button, Card,
-  Badge, SeverityBadge, StatTile, Modal, …). No component library.
-- **`src/pages/`** — `Overview` (stat tiles + severity breakdown + recent incidents), `Incidents`
-  (list + detail two-pane), `KnowledgeBase` (document cards).
+- **`src/lib/`** — `api.ts` (thin fetch wrapper; throws `ApiError` carrying the backend `detail`, plus
+  `errText()` to normalize any thrown value — network `TypeError`, non-JSON proxy error page, or
+  `ApiError` — into one display string), `types.ts` (mirrors the backend DTOs — the source of truth for
+  request/response shapes), `theme.ts` (light/dark), `severity.ts` (severity → fixed status palette),
+  `status.ts` (incident lifecycle status → pastel badge tone), `format.ts` (`timeAgo`, `incidentRef`),
+  `nav.ts` (sidebar sections + the three views), `useDashboard.ts` (one shared fetch of incidents +
+  documents, keyed by a `refreshKey` the App bumps after any ingest — Overview, Incidents, and the top
+  bar's alert count all read from this single hook so they never disagree).
+- **`src/components/`** — `layout/` (`Sidebar` — dark nav rail with sectioned nav; `TopBar` — search,
+  notification bell keyed off urgent-incident count, health pill, theme toggle; `PageHeader` — per-view
+  title + primary action) and `ui/` (hand-rolled primitives: Button, Card, Badge, SeverityBadge,
+  StatusBadge, StatTile, Modal, `Skeleton` (loading shimmer), `EmptyState`, `ErrorState` (the designed
+  "can't reach the backend" screen — shows the fix command + Retry), …) plus `ActivityFeed` (a real
+  timeline built from incident-ingested / document-indexed events, not fabricated activity). No
+  component library.
+- **`src/pages/`** — `Overview` (stat cards + recent incidents + activity feed dashboard), `Incidents`
+  (list + detail two-pane), `KnowledgeBase` (document cards). All three take the shared `useDashboard`
+  data plus the top bar's search query and render loading/empty/error states explicitly.
 - **`src/features/`** — the incident and document workflows (lists, detail, ingest modals).
 
-Design tokens (light/dark surfaces, severity colors) come from the dataviz reference palette and are
-defined as CSS variables in `src/index.css`; components reference roles (`bg-surface`, `text-ink`,
-`--sev-critical`) rather than raw hex, so theming swaps in one place. When the backend adds a field,
-update `src/lib/types.ts` (and the relevant page/feature) to render it — keep it in sync with the DTOs.
+**Design language**: a light SaaS dashboard with a **permanently-dark navigation rail** (the rail tokens
+in `src/index.css` are never theme-flipped — it stays dark in both light and dark mode). Indigo accent,
+pastel status/severity pills (always color *and* text label, never color alone), soft rounded cards, an
+ambient `.plane-aurora` gradient wash behind the content plane. Fonts: Plus Jakarta Sans (display),
+Inter (body), JetBrains Mono (data/ids). Tokens are CSS variables in `src/index.css`; components
+reference roles (`bg-surface`, `text-ink`, `--sev-critical`, `--rail-*`) rather than raw hex, so theming
+swaps in one place. Tailwind 3.4 caveat: opacity modifiers on CSS-var colors (`ring-accent/25`) don't
+compile — use an explicit token or an arbitrary value (`ring-[var(--accent-weak)]`) instead. When the
+backend adds a field, update `src/lib/types.ts` (and the relevant page/feature) to render it — keep it
+in sync with the DTOs.
 
 ## Architecture (`backend/ai/analyze_incident.py`)
 

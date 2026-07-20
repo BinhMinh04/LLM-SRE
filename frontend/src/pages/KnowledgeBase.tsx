@@ -1,9 +1,29 @@
+import type { DashboardData } from '../lib/useDashboard'
 import { DocumentList } from '../features/documents/DocumentList'
 
-export function KnowledgeBase({ refreshKey }: { refreshKey: number }) {
+export function KnowledgeBase({
+  data,
+  query,
+  onRetry,
+  onNew,
+}: {
+  data: DashboardData
+  query: string
+  onRetry: () => void
+  onNew: () => void
+}) {
   return (
-    <div className="animate-in h-full overflow-y-auto p-6">
-      <DocumentList refreshKey={refreshKey} />
+    <div className="h-full overflow-y-auto px-4 pb-10 md:px-8">
+      <div className="animate-in">
+        <DocumentList
+          rows={data.docs}
+          loading={data.loading}
+          error={data.error}
+          query={query}
+          onRetry={onRetry}
+          onNew={onNew}
+        />
+      </div>
     </div>
   )
 }

@@ -1,60 +1,87 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /*
-  Design tokens from the dataviz reference palette (validated light/dark surfaces
-  + fixed status palette). Values swap by theme; components reference roles only.
+  Design language: a light SaaS incident console with a permanently-dark
+  navigation rail. Content surfaces + status pills swap by theme; the rail
+  tokens are defined once and never overridden, so the rail stays dark in
+  both light and dark mode (the signature of the layout).
 */
 :root {
   color-scheme: light;
-  --plane: #f9f9f7;
-  --surface: #fcfcfb;
-  --surface-2: #f1f0ec;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #898781;
-  --hair: rgba(11, 11, 11, 0.1);
-  --grid: #e1e0d9;
-  --accent: #2a78d6;
-  --accent-weak: #cde2fb;
 
-  /* Status palette — fixed, never themed. */
-  --sev-critical: #d03b3b;
-  --sev-high: #ec835a;
-  --sev-medium: #fab219;
-  --sev-low: #0ca30c;
+  /* Content surfaces */
+  --plane: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #eef1f8;
+  --ink: #0f172a;
+  --ink-2: #475569;
+  --muted: #94a3b8;
+  --hair: rgba(15, 23, 42, 0.08);
+  --grid: #d9deeb;
+
+  /* Brand accent (indigo) */
+  --accent: #6366f1;
+  --accent-strong: #4f46e5;
+  --accent-weak: #ecedfd;
+
+  /* Auxiliary hues for icon chips / badges */
+  --info: #3b82f6;
+  --purple: #8b5cf6;
+
+  /* Navigation rail — constant across themes (dark). */
+  --rail: #0f172a;
+  --rail-panel: #131f38;
+  --rail-text: #cbd5e1;
+  --rail-dim: #64748b;
+  --rail-hover: rgba(255, 255, 255, 0.05);
+  --rail-active-bg: rgba(255, 255, 255, 0.1);
+  --rail-active-text: #ffffff;
+  --rail-hair: rgba(255, 255, 255, 0.08);
+
+  /* Status palette — fixed, always paired with a text label + icon. */
+  --sev-critical: #ef4444;
+  --sev-high: #f97316;
+  --sev-medium: #f59e0b;
+  --sev-low: #10b981;
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --plane: #0d0d0d;
-  --surface: #1a1a19;
-  --surface-2: #232321;
-  --ink: #ffffff;
-  --ink-2: #c3c2b7;
-  --muted: #898781;
-  --hair: rgba(255, 255, 255, 0.1);
-  --grid: #2c2c2a;
-  --accent: #4f9bff;
-  --accent-weak: #16273b;
+  --plane: #0a0f1d;
+  --surface: #121c31;
+  --surface-2: #1b2740;
+  --ink: #f1f5f9;
+  --ink-2: #cbd5e1;
+  --muted: #64748b;
+  --hair: rgba(148, 163, 184, 0.14);
+  --grid: #263349;
+  --accent: #818cf8;
+  --accent-strong: #6366f1;
+  --accent-weak: rgba(129, 140, 248, 0.16);
+  --info: #60a5fa;
+  --purple: #a78bfa;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --plane: #0d0d0d;
-    --surface: #1a1a19;
-    --surface-2: #232321;
-    --ink: #ffffff;
-    --ink-2: #c3c2b7;
-    --muted: #898781;
-    --hair: rgba(255, 255, 255, 0.1);
-    --grid: #2c2c2a;
-    --accent: #4f9bff;
-    --accent-weak: #16273b;
+    --plane: #0a0f1d;
+    --surface: #121c31;
+    --surface-2: #1b2740;
+    --ink: #f1f5f9;
+    --ink-2: #cbd5e1;
+    --muted: #64748b;
+    --hair: rgba(148, 163, 184, 0.14);
+    --grid: #263349;
+    --accent: #818cf8;
+    --accent-strong: #6366f1;
+    --accent-weak: rgba(129, 140, 248, 0.16);
+    --info: #60a5fa;
+    --purple: #a78bfa;
   }
 }
 
@@ -69,21 +96,27 @@ body {
   color: var(--ink);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Console-grid texture — used sparingly as a signature backdrop. */
-.bg-grid {
+/*
+  Ambient aurora — a soft, characteristic wash behind the content plane.
+  Two low-opacity radial glows (indigo + violet) anchored to the top edge.
+  Subtle in light, a touch deeper in dark. This is the page's atmosphere.
+*/
+.plane-aurora {
+  background-color: var(--plane);
   background-image:
-    linear-gradient(to right, var(--hair) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--hair) 1px, transparent 1px);
-  background-size: 22px 22px;
+    radial-gradient(52rem 26rem at 88% -12%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
+    radial-gradient(44rem 24rem at 8% -8%, color-mix(in srgb, var(--purple) 14%, transparent), transparent 72%);
+  background-repeat: no-repeat;
 }
 
-/* Page mount: a single, quiet reveal (respects reduced motion). */
+/* Page mount: one quiet, staggered reveal (respects reduced motion). */
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -91,24 +124,59 @@ body {
   }
 }
 .animate-in {
-  animation: fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* Loading shimmer for skeleton placeholders. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ink) 7%, transparent),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-in {
     animation: none;
   }
+  .skeleton::after {
+    animation: none;
+  }
 }
 
-/* Thin, theme-aware scrollbars so panels feel like a console. */
+/* Thin, theme-aware scrollbars. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--grid) transparent;
 }
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
 }
 *::-webkit-scrollbar-thumb {
   background: var(--grid);
-  border-radius: 8px;
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: padding-box;
 }
