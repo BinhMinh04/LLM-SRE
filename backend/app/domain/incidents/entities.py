@@ -19,7 +19,7 @@ class Incident:
     source: str  # auto | manual | webhook
     fingerprint: str
     context: dict
-    status: str = "new"  # new | analyzing | analyzed | ticketed | resolved
+    status: str = "new"  # new | analyzing | analyzed | failed | ticketed | resolved
     id: uuid.UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

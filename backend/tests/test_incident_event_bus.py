@@ -13,7 +13,7 @@ from app.infrastructure.events import IncidentEventBus
 pytestmark = pytest.mark.asyncio
 
 
-def test_subscribe_without_open_returns_none():
+async def test_subscribe_without_open_returns_none():
     bus = IncidentEventBus()
     assert bus.subscribe("missing-incident") is None
 

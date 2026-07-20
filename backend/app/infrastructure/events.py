@@ -61,3 +61,7 @@ class BusProgressReporter:
             self._incident_id,
             {"event": "stage", "data": {"stage": name, "label": label, "detail": detail}},
         )
+
+
+default_bus = IncidentEventBus()
+"""Process-wide singleton — this app runs as one process (local dev/test tool), not multi-worker."""

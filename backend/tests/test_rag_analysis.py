@@ -23,6 +23,7 @@ from app.infrastructure.db.orm import (
 )
 from app.interface.http.deps import get_base_analyzer, get_embedder, get_session
 from app.main import app
+from tests.sse_test_utils import iter_sse
 
 _CTX = {
     "service": "GCM",
@@ -203,7 +204,11 @@ async def test_analysis_cites_ingested_document():
 
         inc = await c.post("/api/incidents", json={"source": "manual", "context": _CTX})
         assert inc.status_code == 201
-        detail = await c.get(f"/api/incidents/{inc.json()['incident_id']}")
+        incident_id = inc.json()["incident_id"]
+        async with c.stream("GET", f"/api/incidents/{incident_id}/stream") as resp:
+            events = [e async for e in iter_sse(resp)]
+        assert events[-1][0] == "analyzed", events
+        detail = await c.get(f"/api/incidents/{incident_id}")
         analysis = detail.json()["analysis"]
 
     app.dependency_overrides.clear()

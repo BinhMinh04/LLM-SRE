@@ -7,7 +7,10 @@ a disposable DB without calling Bedrock.
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,12 +31,16 @@ from app.infrastructure.db.repositories import (
     SqlAlchemyUnitOfWork,
 )
 from app.infrastructure.db.session import SessionLocal
+from app.infrastructure.events import IncidentEventBus, default_bus
 from app.infrastructure.graph.analyzer import GraphAnalyzer
 from app.infrastructure.llm.bedrock_analyzer import BedrockAnalyzer
 from app.infrastructure.llm.chat import BedrockChatModel, DeepSeekChatModel
 from app.infrastructure.llm.deepseek_analyzer import DeepSeekAnalyzer
 from app.infrastructure.llm.jina_embedder import JinaEmbedder
 from app.infrastructure.llm.titan_embedder import TitanEmbedder
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
@@ -139,3 +146,43 @@ def get_ingest_document(
         embedder=embedder,
         uow=SqlAlchemyUnitOfWork(session),
     )
+
+
+def get_event_bus() -> IncidentEventBus:
+    """The process-wide in-process pub/sub for live incident-analysis progress (SSE streaming
+    design, decision 2026-07-20). A single shared instance — this is a local dev/test app running
+    as one process, not a multi-worker deployment."""
+    return default_bus
+
+
+@dataclass
+class BackgroundIncidentDeps:
+    """Everything a background analysis task needs, bound to its own DB session."""
+
+    ingest: IngestIncident
+    documents: DocumentRepository
+
+
+@asynccontextmanager
+async def resolve_background_incident_deps(app: "FastAPI") -> AsyncIterator[BackgroundIncidentDeps]:
+    """Build fresh incident-analysis dependencies for a background task scheduled after the
+    request's own session has already closed. Honors `app.dependency_overrides` for `get_session`
+    / `get_base_analyzer` / `get_embedder` (the ones tests actually override) so tests exercise the
+    same fakes the request path used, while still opening an independent session."""
+    session_dep = app.dependency_overrides.get(get_session, get_session)
+    base_provider = app.dependency_overrides.get(get_base_analyzer, get_base_analyzer)
+    embedder_provider = app.dependency_overrides.get(get_embedder, get_embedder)
+    settings = get_settings()
+    async with asynccontextmanager(session_dep)() as session:
+        analyzer = get_analyzer(session=session, base=base_provider(), embedder=embedder_provider())
+        ingest = IngestIncident(
+            incidents=SqlAlchemyIncidentRepository(session),
+            cache=SqlAlchemyAnalysisCacheRepository(session),
+            analyzer=analyzer,
+            clock=SystemClock(),
+            uow=SqlAlchemyUnitOfWork(session),
+            cache_ttl_seconds=settings.cache_ttl_seconds,
+        )
+        yield BackgroundIncidentDeps(
+            ingest=ingest, documents=SqlAlchemyDocumentRepository(session)
+        )
