@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { useTheme } from './lib/theme'
+import { useAuth } from './lib/auth'
+import { useTheme, type Theme } from './lib/theme'
 import { useDashboard } from './lib/useDashboard'
 import { VIEW_META, type View } from './lib/nav'
 import { severityMeta } from './lib/severity'
@@ -8,6 +9,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { PageHeader } from './components/layout/PageHeader'
 import { Button } from './components/ui/Button'
+import { Login } from './pages/Login'
 import { Overview } from './pages/Overview'
 import { Incidents } from './pages/Incidents'
 import { KnowledgeBase } from './pages/KnowledgeBase'
@@ -15,7 +17,32 @@ import { NewIncidentModal } from './features/incidents/NewIncidentModal'
 import { NewDocumentModal } from './features/documents/NewDocumentModal'
 
 export default function App() {
+  // useTheme runs on both screens so the login page respects light/dark too.
   const { theme, toggle } = useTheme()
+  const { authed, email, signIn, signOut } = useAuth()
+
+  if (!authed) return <Login onSignIn={signIn} />
+  return (
+    <Dashboard
+      theme={theme}
+      onToggleTheme={toggle}
+      email={email}
+      onSignOut={signOut}
+    />
+  )
+}
+
+function Dashboard({
+  theme,
+  onToggleTheme,
+  email,
+  onSignOut,
+}: {
+  theme: Theme
+  onToggleTheme: () => void
+  email: string | null
+  onSignOut: () => void
+}) {
   const [view, setView] = useState<View>('overview')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
@@ -46,7 +73,7 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar view={view} onNavigate={setView} />
+      <Sidebar view={view} onNavigate={setView} email={email} onSignOut={onSignOut} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           query={query}
@@ -54,7 +81,7 @@ export default function App() {
           alertCount={alertCount}
           onBellClick={() => setView('incidents')}
           theme={theme}
-          onToggleTheme={toggle}
+          onToggleTheme={onToggleTheme}
         />
         <main className="plane-aurora flex min-h-0 flex-1 flex-col">
           <PageHeader title={meta.title} subtitle={meta.subtitle} action={action} />
