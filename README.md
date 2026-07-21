@@ -37,7 +37,8 @@ iim/
 │           └── apicost_overage.json   # third-party API cost case
 ├── frontend/              # React (Vite) + shadcn/ui board
 ├── iac/                   # Terraform later (empty for now)
-└── docker-compose.yml     # full stack: db + backend + frontend
+├── .github/workflows/     # CI + DevSecOps (lint, test, security scan)
+└── docker-compose.yml     # full stack: docker compose up --build
 ```
 
 ## Run the AI brain directly (Step 0 — dev harness)
@@ -59,6 +60,31 @@ The script runs twice: run 1 calls the LLM (cache miss), run 2 returns instantly
 
 **Before running:** open the Bedrock console and enable *Model access* for the model in `MODEL_ID`
 (defaults to Haiku for cost). Region ap-southeast-1 may require an inference-profile id.
+
+## Run the full stack (Docker)
+
+From the repo root:
+
+```bash
+docker compose up --build     # db + backend :8000 + frontend :5173
+# open http://localhost:5173
+```
+
+The app and login screen load without credentials, but **AI analysis needs an LLM provider**: set
+AWS Bedrock creds (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION`) or
+`LLM_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` in a `.env` file at the repo root.
+
+## CI / DevSecOps
+
+`.github/workflows/ci.yml` runs on every PR and push to `main`:
+
+- **backend** — `ruff` lint + `pytest` (against a pgvector service container).
+- **frontend** — `tsc` typecheck + Vite build.
+- **security** — Gitleaks (secrets), Semgrep (SAST), Trivy filesystem (SCA + misconfig), Hadolint
+  (Dockerfile lint). Findings go to the **Security** tab (SARIF).
+
+**Gate:** a leaked secret fails the pipeline; lower-severity SAST/SCA findings are reported but do
+not block. (Docker image build + publish is not part of CI for now.)
 
 ## ⚠️ Security — read carefully
 
