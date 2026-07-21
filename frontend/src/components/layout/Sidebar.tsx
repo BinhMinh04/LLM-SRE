@@ -1,7 +1,18 @@
-import { HelpCircle, ShieldAlert } from 'lucide-react'
+import { LogOut, ShieldAlert } from 'lucide-react'
 import { NAV_SECTIONS, type View } from '../../lib/nav'
 
-export function Sidebar({ view, onNavigate }: { view: View; onNavigate: (v: View) => void }) {
+export function Sidebar({
+  view,
+  onNavigate,
+  email,
+  onSignOut,
+}: {
+  view: View
+  onNavigate: (v: View) => void
+  email: string | null
+  onSignOut: () => void
+}) {
+  const initials = (email ?? '?').slice(0, 2).toUpperCase()
   return (
     <aside className="hidden w-64 shrink-0 flex-col bg-rail text-rail-text md:flex">
       {/* Brand */}
@@ -71,12 +82,24 @@ export function Sidebar({ view, onNavigate }: { view: View; onNavigate: (v: View
 
       {/* Footer */}
       <div className="border-t border-rail-hair px-3 py-3">
-        <div
-          className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rail-dim"
-          title="Planned — not built yet"
-        >
-          <HelpCircle size={18} strokeWidth={2} /> Help &amp; docs
+        <div className="flex items-center gap-3 rounded-xl px-3 py-2">
+          <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, var(--accent), var(--purple))' }}
+          >
+            {initials}
+          </span>
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="truncate text-sm font-semibold text-white">{email}</div>
+            <div className="text-[11px] font-medium text-rail-dim">Signed in</div>
+          </div>
         </div>
+        <button
+          onClick={onSignOut}
+          className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-rail-text transition hover:bg-[var(--rail-hover)] hover:text-white"
+        >
+          <LogOut size={18} strokeWidth={2.1} /> Sign out
+        </button>
         <div className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-rail-dim">
           Local test build · v0.1
         </div>
