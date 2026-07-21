@@ -1,0 +1,172 @@
+# CI + DevSecOps for IIM.
+#
+# Lints/tests the backend and frontend and runs security scans in parallel.
+# (Docker image build + push to GHCR is intentionally left out for now.)
+#
+# Security gate: a leaked secret fails the pipeline; lower-severity SAST/SCA
+# findings are reported to the Security tab (SARIF) without blocking. SARIF
+# upload is best-effort (continue-on-error) so a private repo without GitHub
+# Advanced Security still passes — results stay in the job logs either way.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · ruff + pytest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      # Integration/HTTP tests create their own schema (CREATE EXTENSION vector +
+      # metadata.create_all) against this DB; without it they skip.
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: iim
+          POSTGRES_USER: iim
+          POSTGRES_PASSWORD: iim
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U iim -d iim"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://iim:iim@localhost:5432/iim
+      TEST_DATABASE_URL: postgresql+asyncpg://iim:iim@localhost:5432/iim
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Lint (ruff)
+        run: uv run ruff check .
+      - name: Test (pytest)
+        run: uv run pytest -q
+
+  frontend:
+    name: Frontend · typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+
+  security:
+    name: Security · scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans full history
+
+      # --- Secrets: hard fail on any leak ---
+      - name: Gitleaks (secrets)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # --- SAST: Semgrep (Python + TS), report-only ---
+      - name: Semgrep (SAST)
+        run: |
+          pipx install semgrep
+          semgrep scan --config auto --sarif --output semgrep.sarif || true
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      # --- SCA + misconfig: Trivy filesystem, report-only ---
+      - name: Trivy filesystem (SCA + misconfig)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '0'
+      - name: Upload Trivy FS SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      # --- Dockerfile lint: Hadolint, report-only (logs) ---
+      - name: Hadolint (backend Dockerfile)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: backend/Dockerfile
+          no-fail: true
+      - name: Hadolint (frontend Dockerfile)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: frontend/Dockerfile
+          no-fail: true
+
+  sonarcloud:
+    name: SonarCloud · SAST + quality
+    runs-on: ubuntu-latest
+    # Skips cleanly until SONAR_TOKEN is added as a repo secret (env-var guard,
+    # since secrets can't be used directly in a job/step `if`).
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Sonar needs full history for new-code / blame
+      - name: SonarQube Cloud scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v8
+      - name: Skipped (no token)
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: echo "SONAR_TOKEN not set — skipping SonarCloud. Add the secret to enable."
+
+  snyk:
+    name: Snyk · SCA (Open Source)
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Snyk CLI
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: npm install -g snyk
+      - name: Snyk Open Source (SCA)
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: snyk test --all-projects --severity-threshold=high || true
+      - name: Skipped (no token)
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: echo "SNYK_TOKEN not set — skipping Snyk. Add the secret to enable."

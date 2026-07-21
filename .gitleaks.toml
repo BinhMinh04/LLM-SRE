@@ -1,0 +1,16 @@
+# Gitleaks config for IIM.
+#
+# Extends the built-in ruleset and allowlists known false positives only. Real
+# secrets belong in GitHub Actions secrets or a git-ignored .env — never in the
+# repo — so this file just silences non-secret matches, it does not weaken
+# secret detection anywhere else.
+title = "IIM gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "sonar-project.properties holds identifiers (project key, org), not secrets"
+paths = [
+  '''sonar-project\.properties''',
+]
